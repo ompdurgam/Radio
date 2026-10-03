@@ -277,15 +277,16 @@ const Admin = (() => {
     const badge = $('requests-count');
     if (!list) return;
 
-    // Filter to active, unserved requests only
+    // Filter to active requests (including 'playing')
     const activeRequests = (requests || []).filter(r => {
       const st = (r.status || '').toLowerCase();
-      return !['completed', 'played', 'rejected'].includes(st);
+      return ['pending', 'processing', 'queued', 'playing'].includes(st);
     });
 
     if (badge) {
+      const hasPlaying = activeRequests.some(r => (r.status || '').toLowerCase() === 'playing');
       const count = activeRequests.length;
-      badge.textContent = count > 0 ? `${count} NEW` : 'PRIORITY';
+      badge.textContent = hasPlaying ? 'ON AIR' : (count > 0 ? `${count} REQ` : 'PRIORITY');
     }
 
     if (!activeRequests.length) {
@@ -296,7 +297,11 @@ const Admin = (() => {
     list.innerHTML = '';
     activeRequests.forEach(r => {
       const item = document.createElement('div');
-      item.className = 'req-card';
+      const statusClass = (r.status || 'pending').toLowerCase();
+      const isPlaying = statusClass === 'playing';
+      const canPlayNext = statusClass === 'queued' || statusClass === 'pending';
+
+      item.className = 'req-card' + (isPlaying ? ' playing' : '');
 
       const audioPlayer = r.rj_audio_url 
         ? `<div style="margin-top: 8px;"><audio controls preload="none" style="height: 28px; width: 100%; max-width: 280px;" src="${r.rj_audio_url}"></audio></div>`
@@ -306,8 +311,13 @@ const Admin = (() => {
       const emotionBadge = r.emotion_tag ? `<span style="font-size:11px; background:rgba(245,158,11,0.1); color:var(--amber-dk); padding:2px 6px; border-radius:4px; font-weight:600;">#${_esc(r.emotion_tag)}</span>` : '';
       const story = r.story ? `<div class="req-story">"${_esc(r.story)}"</div>` : '';
 
-      const statusClass = (r.status || 'pending').toLowerCase();
-      const canPlayNext = statusClass === 'queued' || statusClass === 'pending';
+      const badgeHtml = isPlaying
+        ? `<span class="req-badge playing"><span class="live-dot" style="display:inline-block;width:5px;height:5px;"></span>playing</span>`
+        : `<span class="req-badge ${statusClass}">${statusClass}</span>`;
+
+      const playNextBtnHtml = isPlaying
+        ? `<span style="font-size:11px;font-weight:600;color:#059669;display:flex;align-items:center;gap:4px;">▶ ON AIR</span>`
+        : (canPlayNext ? `<button class="btn-play-next" data-req-id="${r.id}" title="Queue this request to play immediately after current song">▶ Play Next</button>` : '');
 
       const timeStr = r.created_at ? new Date(r.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
 
@@ -319,7 +329,7 @@ const Admin = (() => {
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
             ${emotionBadge}
-            <span class="req-badge ${statusClass}">${statusClass}</span>
+            ${badgeHtml}
           </div>
         </div>
         ${dedication}
@@ -328,7 +338,7 @@ const Admin = (() => {
         <div class="req-footer">
           <span style="font-size:11px; color:var(--muted);">${timeStr}</span>
           <div class="req-actions">
-            ${canPlayNext ? `<button class="btn-play-next" data-req-id="${r.id}" title="Queue this request to play immediately after current song">▶ Play Next</button>` : ''}
+            ${playNextBtnHtml}
             <button class="btn-del-req" data-req-id="${r.id}" title="Remove request">✕ Remove</button>
           </div>
         </div>

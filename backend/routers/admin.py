@@ -129,8 +129,8 @@ def get_requests(all: bool = False, x_admin_username: str = Header(None), x_admi
     try:
         query = db.query(Request)
         if not all:
-            query = query.filter(Request.status.in_(["pending", "processing", "queued"]))
-            reqs = query.order_by(Request.created_at.asc()).all()
+            query = query.filter(Request.status.in_(["pending", "processing", "queued", "playing"]))
+            reqs = query.order_by((Request.status == "playing").desc(), Request.created_at.asc()).all()
         else:
             reqs = query.order_by(Request.created_at.desc()).limit(50).all()
         result = []
@@ -194,6 +194,8 @@ async def delete_request(request_id: int, x_admin_username: str = Header(None), 
         radio_engine.request_queue = [q for q in radio_engine.request_queue if q.get("request_id") != request_id]
         if request_id in radio_engine.pending_queue:
             radio_engine.pending_queue.remove(request_id)
+        if radio_engine.current_request_id == request_id:
+            radio_engine.current_request_id = None
 
         db.delete(req)
         db.commit()

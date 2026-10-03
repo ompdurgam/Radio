@@ -43,8 +43,8 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
         silence = AudioSegment.silent(duration=500)
         voice = silence + voice + AudioSegment.silent(duration=800)
 
-        # Try to add background music
-        bg_path = bg_music_path or _find_bg_music()
+        # When RJ sound plays, no background music is played (clean solo voice)
+        bg_path = bg_music_path
         if bg_path and os.path.exists(bg_path):
             bg = AudioSegment.from_file(bg_path)
 
@@ -58,8 +58,8 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
             # Fade in bg music
             bg = bg.fade_in(1500)
 
-            # Duck music under voice (-20 dB ensures RJ voice strongly dominates)
-            bg_ducked = bg - 20
+            # Duck music under voice
+            bg_ducked = bg - 24
 
             # Overlay voice on ducked music
             final = bg_ducked.overlay(voice, position=500)
@@ -67,7 +67,7 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
             # Fade out at end
             final = final.fade_out(1500)
         else:
-            # No background music — just voice with fade
+            # Clean RJ voice without background music
             final = voice.fade_in(200).fade_out(800)
 
         final = effects.normalize(final)

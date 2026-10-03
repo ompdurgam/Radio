@@ -25,6 +25,7 @@ class RadioEngine:
         self.current_rj_url: Optional[str] = None
         self.rj_ends_at: float = 0.0
         self.rj_enabled: bool = True
+        self.current_request_id: Optional[int] = None
 
         # Pre-planned upcoming songs (admin can reorder these)
         self.upcoming_queue: List[Dict] = []
@@ -68,7 +69,7 @@ class RadioEngine:
     # ── State snapshot ─────────────────────────────────────────────────────────
     def to_dict(self) -> Dict:
         now = time.time()
-        is_rj_active = bool(self.current_rj_url and (now < self.rj_ends_at))
+        is_rj_active = bool(self.current_rj_url and (now < self.song_started_at))
         return {
             "current_song":    self.current_song,
             "song_started_at": self.song_started_at,
@@ -128,6 +129,13 @@ class RadioEngine:
         """
         db = SessionLocal()
         try:
+            # Clean up any leftover 'playing' requests from prior process run
+            db.query(Request).filter(Request.status == "playing").update({
+                "status": "completed",
+                "processed_at": datetime.utcnow()
+            })
+            db.commit()
+
             # Start playing
             song = self._pick_random_song(db)
             if song:
@@ -189,6 +197,9 @@ class RadioEngine:
             if not self.is_playing or not self.song_started_at:
                 continue
             now = time.time()
+            if now < self.song_started_at:
+                # RJ sound is currently on air; song has not started yet
+                continue
             elapsed = now - self.song_started_at
             if elapsed >= self.song_duration + 1:
                 print(f"[SKIP] [{elapsed:.0f}s/{self.song_duration:.0f}s] Advancing...")
@@ -201,6 +212,16 @@ class RadioEngine:
         """Internal: pick the next song from request_queue or upcoming_queue."""
         db = SessionLocal()
         try:
+            # Complete the previous playing request if one was on air
+            if self.current_request_id:
+                prev_req = db.query(Request).filter(Request.id == self.current_request_id).first()
+                if prev_req and prev_req.status == "playing":
+                    prev_req.status = "completed"
+                    prev_req.processed_at = datetime.utcnow()
+                    db.commit()
+                    print(f"[REQUEST] Request #{self.current_request_id} finished playing -> completed.")
+                self.current_request_id = None
+
             # 1) Listener requests take priority
             if self.request_queue:
                 req = self.request_queue[0]
@@ -211,21 +232,22 @@ class RadioEngine:
                     if song:
                         self.current_song = song
 
-                    # Mark request as completed in DB once served
+                    # Tag request as 'playing' while on air until song completes
                     req_id = req.get("request_id")
                     if req_id:
+                        self.current_request_id = req_id
                         db_req = db.query(Request).filter(Request.id == req_id).first()
                         if db_req:
-                            db_req.status = "completed"
-                            db_req.processed_at = datetime.utcnow()
+                            db_req.status = "playing"
                             db.commit()
+                            print(f"[REQUEST] Request #{req_id} status tagged as PLAYING.")
 
                     rj_url = req.get("rj_audio_url") if self.rj_enabled else None
                     rj_dur = self._get_audio_file_duration(rj_url) if rj_url else 0.0
                     self.current_rj_url = rj_url
                     now = time.time()
                     self.rj_ends_at          = now + rj_dur if rj_dur > 0 else 0.0
-                    self.song_started_at     = now
+                    self.song_started_at     = self.rj_ends_at if rj_dur > 0 else now
                     self.song_duration       = float(song.get("duration") or _DEFAULT_SONG_DURATION) if song else _DEFAULT_SONG_DURATION
                     self._duration_confirmed = False
                     self._refill_upcoming(db)
@@ -261,9 +283,9 @@ class RadioEngine:
             self.current_rj_url = rj_audio_url
             now = time.time()
             self.rj_ends_at          = now + rj_dur if rj_dur > 0 else 0.0
+            self.song_started_at     = self.rj_ends_at if rj_dur > 0 else now
 
             self.current_song        = song
-            self.song_started_at     = now
             self.song_duration       = float(song.get("duration") or _DEFAULT_SONG_DURATION)
             self._duration_confirmed = False
 

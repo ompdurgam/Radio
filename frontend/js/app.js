@@ -29,6 +29,7 @@ const App = (() => {
     listeners:     0,
     rjAudio:       null,
     rjPlaying:     false,
+    currentRjUrl:  null,
     wsConnected:   false,
     ytLoaded:      false,  // YT player has a video loaded and can .play()
     pingInterval:  null,
@@ -184,6 +185,7 @@ const App = (() => {
     if (data.song_started_at && data.song_started_at > 0) {
       state.songStartedAt = data.song_started_at;
     }
+    state.currentRjUrl = data.rj_audio_url || null;
 
     state.listeners = data.listener_count || 0;
     state.radioMode  = data.mode || 'auto';
@@ -200,7 +202,8 @@ const App = (() => {
       _updateSongDisplay(song);
 
       // If already playing and song changed on server, transition smoothly
-      if (state.isPlaying && songChanged && !state.rjPlaying) {
+      // BUT do NOT play if RJ sound is playing or scheduled
+      if (state.isPlaying && songChanged && !state.rjPlaying && (_radioNow() >= state.songStartedAt)) {
         console.log(`[Sync] Server song changed → "${song.title}"`);
         _loadYTSong(song, _getSyncOffset());
       }
@@ -242,6 +245,7 @@ const App = (() => {
       state.songStartedAt  = data.started_at;
       state.ytLoaded       = false;  // new song = must load fresh
     }
+    state.currentRjUrl = data.rj_audio_url || null;
 
     // Always update the UI display (song title, artist, cover art)
     const song = data.song;
@@ -255,27 +259,30 @@ const App = (() => {
     if (!state.isPlaying) return;
 
     if (data.rj_audio_url && song) {
-      // Play RJ announcement while background song is playing at ducked volume
+      // RJ sound is on air — DO NOT play background song!
       const bannerText = data.type === 'request'
         ? 'A special listener dedication is coming up on Delux Radio…'
         : 'RJ Priya is on air — Reliving the golden 90s…';
 
-      // Start the background song immediately from the beginning
-      const offset = _getSyncOffset();
-      _loadYTSong(song, offset);
-
-      // Duck the background song volume so the RJ voice clearly dominates
-      const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
-      Player.setVolume(duckedVol);
+      // Completely pause background song — RJ sound plays alone with no music
+      Player.pause();
+      _stopEq();
+      $('cover-disc')?.classList.remove('spinning');
 
       _playRJAnnouncement(data.rj_audio_url, () => {
-        // When RJ voice concludes, smoothly swell song volume up to full listener volume
-        _fadeSongVolume(duckedVol, state.volume, 1400);
+        // When RJ speech finishes, start the song at normal volume
+        if (state.isPlaying) {
+          const offset = _getSyncOffset();
+          console.log(`[RJ Done] Starting song "${song.title}" at offset ${offset.toFixed(1)}s`);
+          Player.setVolume(state.volume);
+          _loadYTSong(song, offset);
+        }
       }, bannerText);
     } else if (song) {
       // Server just started this song — calculate live radio offset
       const offset = _getSyncOffset();
       console.log(`[Sync] Server advanced → "${song.title}" at offset ${offset.toFixed(1)}s`);
+      Player.setVolume(state.volume);
       _loadYTSong(song, offset);
     }
   }
@@ -334,9 +341,10 @@ const App = (() => {
       _fadeAnimId = null;
     }
 
-    // Duck background song to ~16% volume (subtle bed so RJ voice dominates)
-    const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
-    Player.setVolume(duckedVol);
+    // Stop/pause background song — RJ speech plays alone with NO background music
+    Player.pause();
+    _stopEq();
+    $('cover-disc')?.classList.remove('spinning');
 
     if (state.rjAudio) {
       try { state.rjAudio.pause(); } catch (e) {}
@@ -355,6 +363,7 @@ const App = (() => {
       finished = true;
       state.rjPlaying = false;
       state.rjAudio = null;
+      state.currentRjUrl = null;
       _hideRJBanner();
       if (onDone) onDone();
     };
@@ -386,8 +395,6 @@ const App = (() => {
         if (muteBtn) muteBtn.textContent = state.volume === 0 ? '🔇' : '🔊';
 
         if (state.rjPlaying) {
-          const ducked = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
-          Player.setVolume(ducked);
           if (state.rjAudio) {
             state.rjAudio.volume = Math.min(1.0, state.volume / 100);
           }
@@ -477,7 +484,7 @@ const App = (() => {
 
     // ── Continuous Synchronization Monitor (every 8s) ────────────────────────
     setInterval(() => {
-      if (!state.isPlaying || state.rjPlaying || !state.currentSong) return;
+      if (!state.isPlaying || state.rjPlaying || !state.currentSong || (_radioNow() < state.songStartedAt)) return;
       const target = _getSyncOffset();
       const current = Player.getCurrentTime();
       if (current > 0 && Math.abs(current - target) > 3.5) {
@@ -488,7 +495,7 @@ const App = (() => {
 
     // Resync immediately when listener switches back to the tab
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && state.isPlaying && !state.rjPlaying) {
+      if (document.visibilityState === 'visible' && state.isPlaying && !state.rjPlaying && (_radioNow() >= state.songStartedAt)) {
         console.log('[Sync] Tab became visible — resyncing live radio offset...');
         _refreshSyncBackground();
       }
@@ -515,8 +522,44 @@ const App = (() => {
     state.isPlaying = true;
     _updatePlayBtn(true);
 
+    // If RJ audio is already loaded and paused, resume it
     if (state.rjAudio && !state.rjAudio.ended) {
+      state.rjPlaying = true;
+      Player.pause();
+      _stopEq();
+      $('cover-disc')?.classList.remove('spinning');
       state.rjAudio.play().catch(() => {});
+      return;
+    }
+
+    // If RJ announcement is actively scheduled/on-air according to server clock:
+    const nowRadio = _radioNow();
+    if (state.currentRjUrl && state.songStartedAt && nowRadio < state.songStartedAt) {
+      console.log(`[Sync] RJ speech in progress, song starts in ${(state.songStartedAt - nowRadio).toFixed(1)}s`);
+      const bannerText = state.radioMode === 'request'
+        ? 'A special listener dedication is coming up on Delux Radio…'
+        : 'RJ Priya is on air — Reliving the golden 90s…';
+      Player.pause();
+      _stopEq();
+      $('cover-disc')?.classList.remove('spinning');
+
+      _playRJAnnouncement(state.currentRjUrl, () => {
+        if (state.isPlaying && state.currentSong) {
+          const offset = _getSyncOffset();
+          console.log(`[RJ Done] Starting song "${state.currentSong.title}" at offset ${offset.toFixed(1)}s`);
+          Player.setVolume(state.volume);
+          _loadYTSong(state.currentSong, offset);
+        }
+      }, bannerText);
+      return;
+    }
+
+    // If RJ is playing, never play YouTube in background
+    if (state.rjPlaying) {
+      Player.pause();
+      _stopEq();
+      $('cover-disc')?.classList.remove('spinning');
+      return;
     }
 
     // Enforce global sync on play: Always reload the video at the current live offset.
@@ -524,11 +567,8 @@ const App = (() => {
     if (state.currentSong?.youtube_video_id) {
       const offset = _getSyncOffset();
       console.log(`[Sync] Play pressed — joining at ${offset.toFixed(1)}s`);
+      Player.setVolume(state.volume);
       _loadYTSong(state.currentSong, offset);
-      if (state.rjPlaying) {
-        const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
-        Player.setVolume(duckedVol);
-      }
       _refreshSyncBackground();
       return;
     }

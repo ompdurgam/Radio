@@ -156,7 +156,13 @@
     .req-dedication { font-size: 11px; color: #ec4899; margin-top: 2px; }
     .req-story { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px; line-height: 1.4; background: rgba(0,0,0,0.02); padding: 4px 8px; border-radius: 6px; }
     .req-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.05); }
+    .req-card.playing {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.04);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.08);
+    }
     .req-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+    .req-badge.playing { background: rgba(16, 185, 129, 0.15); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-flex; align-items: center; gap: 4px; }
     .req-badge.queued { background: rgba(16,185,129,0.12); color: #059669; }
     .req-badge.pending { background: rgba(245,158,11,0.15); color: var(--amber-dk); }
     .req-badge.processing { background: rgba(245,158,11,0.15); color: var(--amber-dk); }

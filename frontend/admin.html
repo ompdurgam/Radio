@@ -147,6 +147,77 @@
     .btn-delete-song:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; color: #ef4444; }
     .btn-delete-song:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* RJ Toggle Button */
+    .btn-rj-toggle {
+      display: flex; align-items: center; gap: 8px;
+      border-radius: 20px; padding: 6px 14px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: all 0.2s ease;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+    }
+    .btn-rj-toggle.on {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #059669;
+    }
+    .btn-rj-toggle.off {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #dc2626;
+    }
+    .btn-rj-toggle:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .rj-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor;
+    }
+    .btn-rj-toggle.on .rj-dot {
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+    }
+
+    /* Requests Queue */
+    .requests-body { padding: 16px 20px; }
+    .requests-scroll { max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+    .req-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      transition: all 0.2s;
+    }
+    .req-card:hover { border-color: #cbd5e1; background: #ffffff; }
+    .req-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+    .req-user { font-size: 14px; font-weight: 600; color: var(--text); }
+    .req-song-title { font-size: 13px; font-weight: 500; color: var(--amber-dk); margin-top: 2px; }
+    .req-dedication { font-size: 12px; color: #ec4899; margin-top: 2px; }
+    .req-story { font-size: 12px; color: var(--muted); font-style: italic; margin-top: 4px; line-height: 1.4; background: rgba(0,0,0,0.02); padding: 6px 10px; border-radius: 6px; }
+    .req-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.05); }
+    .req-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; }
+    .req-badge.queued { background: rgba(16,185,129,0.12); color: #059669; }
+    .req-badge.processing { background: rgba(245,158,11,0.15); color: var(--amber-dk); }
+    .req-badge.played { background: rgba(148,163,184,0.15); color: #64748b; }
+    .req-badge.rejected { background: rgba(239,68,68,0.12); color: #dc2626; }
+    .req-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-play-next {
+      background: var(--amber); border: none; border-radius: 6px;
+      color: #fff; font-size: 11px; font-weight: 600;
+      padding: 4px 10px; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-play-next:hover { background: var(--amber-dk); }
+    .btn-del-req {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 6px; color: #ef4444; font-size: 11px; font-weight: 500;
+      padding: 4px 8px; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-del-req:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+    .req-count-badge {
+      font-size: 12px; font-weight: 600;
+      background: rgba(245,158,11,0.15); color: var(--amber-dk);
+      padding: 2px 8px; border-radius: 12px;
+    }
+
     /* Modals */
     .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
     .modal-overlay.show { opacity: 1; pointer-events: auto; }
@@ -200,6 +271,10 @@
       <div class="stat-chip"><div class="live-dot"></div><span>LIVE</span></div>
       <div class="stat-chip">👂 <span class="val" id="hdr-listeners">0</span></div>
       <div class="stat-chip">Mode: <span class="val" id="hdr-mode" style="text-transform: capitalize;">auto</span></div>
+      <button class="btn-rj-toggle on" id="btn-toggle-rj" title="Toggle AI RJ on-air voice announcements">
+        <span class="rj-dot"></span>
+        <span id="rj-toggle-label">🎙️ RJ: ON</span>
+      </button>
       <button class="btn-logout" id="btn-logout">Sign out</button>
     </div>
   </header>
@@ -233,6 +308,24 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Song Requests Queue -->
+      <div class="card">
+        <div class="card-head">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="card-title">Song Requests Queue</span>
+            <span class="req-count-badge" id="requests-count">0</span>
+          </div>
+          <button class="btn-outline" id="btn-refresh-requests" style="font-size:12px; padding:6px 12px;">
+            🔄 Refresh
+          </button>
+        </div>
+        <div class="requests-body">
+          <div class="requests-scroll" id="requests-list">
+            <div class="queue-empty">Loading song requests…</div>
           </div>
         </div>
       </div>

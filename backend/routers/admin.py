@@ -112,6 +112,92 @@ async def skip_song(x_admin_username: str = Header(None), x_admin_password: str 
     return {"success": True, "next": next_play}
 
 
+# ── RJ Toggle ──────────────────────────────────────────────────────────────────
+@router.post("/rj/toggle")
+async def toggle_rj(x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
+    _require_auth(x_admin_username, x_admin_password)
+    new_state = radio_engine.admin_toggle_rj()
+    await radio_engine.broadcast_state()
+    return {"success": True, "rj_enabled": new_state}
+
+
+# ── Song Requests Queue ────────────────────────────────────────────────────────
+@router.get("/requests")
+def get_requests(x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
+    _require_auth(x_admin_username, x_admin_password)
+    db = SessionLocal()
+    try:
+        reqs = db.query(Request).order_by(Request.created_at.desc()).limit(50).all()
+        result = []
+        for r in reqs:
+            song = r.song
+            result.append({
+                "id": r.id,
+                "song_id": r.song_id,
+                "song_title": song.title if song else r.song_name_raw,
+                "song_artist": song.artist if song else "Unknown",
+                "movie": song.movie if song else "",
+                "requester_name": r.requester_name,
+                "dedicated_to": r.dedicated_to,
+                "story": r.story,
+                "status": r.status,
+                "emotion_tag": r.emotion_tag,
+                "rj_script": r.rj_script,
+                "rj_audio_url": f"/audio/rj_{r.id}.mp3" if (r.rj_audio_path and os.path.exists(r.rj_audio_path)) else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            })
+        return {"success": True, "requests": result}
+    finally:
+        db.close()
+
+
+@router.post("/requests/{request_id}/play-next")
+async def play_next_request(request_id: int, x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
+    _require_auth(x_admin_username, x_admin_password)
+    db = SessionLocal()
+    try:
+        req = db.query(Request).filter(Request.id == request_id).first()
+        if not req or not req.song:
+            raise HTTPException(status_code=404, detail="Request or song not found")
+
+        audio_path = req.rj_audio_path
+        item = {
+            "request_id": req.id,
+            "song": radio_engine._song_to_dict(req.song),
+            "rj_audio_url": f"/audio/rj_{req.id}.mp3" if (audio_path and os.path.exists(audio_path)) else None,
+            "ready": True
+        }
+        radio_engine.request_queue = [q for q in radio_engine.request_queue if q.get("request_id") != request_id]
+        radio_engine.request_queue.insert(0, item)
+        req.status = "queued"
+        db.commit()
+        await radio_engine.broadcast_state()
+        return {"success": True, "message": f"Request #{request_id} scheduled to play next"}
+    finally:
+        db.close()
+
+
+@router.delete("/requests/{request_id}")
+async def delete_request(request_id: int, x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
+    _require_auth(x_admin_username, x_admin_password)
+    db = SessionLocal()
+    try:
+        req = db.query(Request).filter(Request.id == request_id).first()
+        if not req:
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        radio_engine.request_queue = [q for q in radio_engine.request_queue if q.get("request_id") != request_id]
+        if request_id in radio_engine.pending_queue:
+            radio_engine.pending_queue.remove(request_id)
+
+        db.delete(req)
+        db.commit()
+        await radio_engine.broadcast_state()
+        return {"success": True, "message": f"Request #{request_id} removed"}
+    finally:
+        db.close()
+
+
 # ── Catalog ────────────────────────────────────────────────────────────────────
 @router.get("/songs")
 def get_all_songs(x_admin_username: str = Header(None), x_admin_password: str = Header(None)):

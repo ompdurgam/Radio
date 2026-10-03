@@ -74,8 +74,11 @@ const Admin = (() => {
     $('dashboard').style.display   = 'block';
     _loadStatus();
     _loadCatalog();
+    _loadRequests();
     _startPolling();
     _initSkip();
+    _initRjToggle();
+    _initRequests();
     _initLogout();
     _initAddSong();
   }
@@ -106,7 +109,11 @@ const Admin = (() => {
   // ── Polling ──────────────────────────────────────────────────────────────────
   function _startPolling() {
     _loadStatus();
-    _pollTimer = setInterval(_loadStatus, 5000);   // refresh every 5s
+    _loadRequests();
+    _pollTimer = setInterval(() => {
+      _loadStatus();
+      _loadRequests();
+    }, 5000);   // refresh every 5s
     _progressTimer = setInterval(_tickProgress, 1000);
   }
 
@@ -123,6 +130,21 @@ const Admin = (() => {
     // Header stats
     $('hdr-listeners').textContent = s.listener_count || 0;
     $('hdr-mode').textContent      = s.mode || 'auto';
+
+    // RJ toggle
+    if (s.rj_enabled !== undefined) {
+      const rjBtn = $('btn-toggle-rj');
+      const rjLabel = $('rj-toggle-label');
+      if (rjBtn && rjLabel) {
+        if (s.rj_enabled) {
+          rjBtn.className = 'btn-rj-toggle on';
+          rjLabel.textContent = '🎙️ RJ: ON';
+        } else {
+          rjBtn.className = 'btn-rj-toggle off';
+          rjLabel.textContent = '🎙️ RJ: OFF';
+        }
+      }
+    }
 
     // Now Playing
     const song = s.current_song;
@@ -185,6 +207,151 @@ const Admin = (() => {
       } finally {
         setTimeout(() => { $('btn-skip').disabled = false; }, 2000);
       }
+    });
+  }
+
+  // ── RJ On/Off Toggle ─────────────────────────────────────────────────────────
+  function _initRjToggle() {
+    const btn = $('btn-toggle-rj');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const res = await _api('POST', '/rj/toggle');
+        const enabled = res.rj_enabled;
+        btn.className = `btn-rj-toggle ${enabled ? 'on' : 'off'}`;
+        const label = $('rj-toggle-label');
+        if (label) label.textContent = enabled ? '🎙️ RJ: ON' : '🎙️ RJ: OFF';
+        _toast(`🎙️ AI RJ announcements turned ${enabled ? 'ON' : 'OFF'}`, 'ok');
+      } catch {
+        _toast('Failed to toggle RJ state', 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // ── Song Requests ────────────────────────────────────────────────────────────
+  function _initRequests() {
+    const btnRefresh = $('btn-refresh-requests');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async () => {
+        btnRefresh.disabled = true;
+        await _loadRequests();
+        _toast('Song requests refreshed', 'ok');
+        btnRefresh.disabled = false;
+      });
+    }
+  }
+
+  async function _loadRequests() {
+    try {
+      const data = await _api('GET', '/requests');
+      if (!data.success) return;
+      _renderRequests(data.requests || []);
+    } catch {
+      const list = $('requests-list');
+      if (list && !list.querySelector('.req-card')) {
+        list.innerHTML = '<div class="queue-empty" style="color:var(--red);">Failed to load requests</div>';
+      }
+    }
+  }
+
+  function _renderRequests(requests) {
+    const list = $('requests-list');
+    const badge = $('requests-count');
+    if (!list) return;
+
+    if (badge) badge.textContent = requests ? requests.length : 0;
+
+    if (!requests || requests.length === 0) {
+      list.innerHTML = '<div class="queue-empty">No listener song requests yet</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    requests.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'req-card';
+
+      const audioPlayer = r.rj_audio_url 
+        ? `<div style="margin-top: 8px;"><audio controls preload="none" style="height: 28px; width: 100%; max-width: 280px;" src="${r.rj_audio_url}"></audio></div>`
+        : '';
+
+      const dedication = r.dedicated_to ? `<div class="req-dedication">❤️ Dedication for: <strong>${_esc(r.dedicated_to)}</strong></div>` : '';
+      const emotionBadge = r.emotion_tag ? `<span style="font-size:11px; background:rgba(245,158,11,0.1); color:var(--amber-dk); padding:2px 6px; border-radius:4px; font-weight:600;">#${_esc(r.emotion_tag)}</span>` : '';
+      const story = r.story ? `<div class="req-story">"${_esc(r.story)}"</div>` : '';
+
+      const statusClass = (r.status || 'pending').toLowerCase();
+      const canPlayNext = statusClass === 'queued' || statusClass === 'pending';
+
+      const timeStr = r.created_at ? new Date(r.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+
+      item.innerHTML = `
+        <div class="req-header">
+          <div>
+            <div class="req-user">👤 ${_esc(r.requester_name || 'Anonymous')}</div>
+            <div class="req-song-title">🎵 ${_esc(r.song_title || 'Unknown Song')}${r.song_artist ? ' · ' + _esc(r.song_artist) : ''}${r.movie ? ' (' + _esc(r.movie) + ')' : ''}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            ${emotionBadge}
+            <span class="req-badge ${statusClass}">${statusClass}</span>
+          </div>
+        </div>
+        ${dedication}
+        ${story}
+        ${audioPlayer}
+        <div class="req-footer">
+          <span style="font-size:11px; color:var(--muted);">${timeStr}</span>
+          <div class="req-actions">
+            ${canPlayNext ? `<button class="btn-play-next" data-req-id="${r.id}" title="Queue this request to play immediately after current song">▶ Play Next</button>` : ''}
+            <button class="btn-del-req" data-req-id="${r.id}" title="Remove request">✕ Remove</button>
+          </div>
+        </div>
+      `;
+
+      // Event listeners
+      const playNextBtn = item.querySelector('.btn-play-next');
+      if (playNextBtn) {
+        playNextBtn.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const id = btn.dataset.reqId;
+          btn.disabled = true;
+          btn.textContent = '…';
+          try {
+            await _api('POST', `/requests/${id}/play-next`);
+            _toast(`⚡ Request #${id} scheduled to Play Next!`, 'ok');
+            await _loadRequests();
+            await _loadStatus();
+          } catch {
+            _toast('Failed to schedule request to play next', 'err');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '▶ Play Next';
+          }
+        });
+      }
+
+      const delBtn = item.querySelector('.btn-del-req');
+      if (delBtn) {
+        delBtn.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const id = btn.dataset.reqId;
+          if (!confirm(`Delete request #${id}?`)) return;
+          btn.disabled = true;
+          try {
+            await _api('DELETE', `/requests/${id}`);
+            _toast(`Request #${id} removed`, 'ok');
+            await _loadRequests();
+            await _loadStatus();
+          } catch {
+            _toast('Failed to remove request', 'err');
+            btn.disabled = false;
+          }
+        });
+      }
+
+      list.appendChild(item);
     });
   }
 

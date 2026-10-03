@@ -22,6 +22,7 @@ class RadioEngine:
         self.song_duration:   float = _DEFAULT_SONG_DURATION
         self._duration_confirmed: bool = False
         self.current_rj_url: Optional[str] = None
+        self.rj_enabled: bool = True
 
         # Pre-planned upcoming songs (admin can reorder these)
         self.upcoming_queue: List[Dict] = []
@@ -53,6 +54,8 @@ class RadioEngine:
 
     def _get_station_rj_interlude(self) -> Optional[str]:
         """Return a station RJ interlude audio URL from pre-rendered RJ clips."""
+        if not self.rj_enabled:
+            return None
         audio_dir = Path(__file__).parent.parent / "audio"
         available = sorted(list(audio_dir.glob("station_rj_*.mp3")))
         if not available:
@@ -70,6 +73,7 @@ class RadioEngine:
             "song_duration":   self.song_duration,
             "server_time":     now,
             "rj_audio_url":    self.current_rj_url if is_rj_active else None,
+            "rj_enabled":      self.rj_enabled,
             "upcoming_queue":  self.upcoming_queue[:_UPCOMING_QUEUE_SIZE],
             "request_queue":   self.request_queue,
             "pending_count":   len(self.pending_queue),
@@ -208,7 +212,7 @@ class RadioEngine:
                     if song:
                         self.current_song = song
 
-                    rj_url = req.get("rj_audio_url")
+                    rj_url = req.get("rj_audio_url") if self.rj_enabled else None
                     rj_dur = self._get_audio_file_duration(rj_url) if rj_url else 0.0
                     self.current_rj_url = rj_url
 
@@ -240,7 +244,7 @@ class RadioEngine:
 
             # Auto mode station RJ: play an announcement on 1st song and every 3rd song
             rj_audio_url = None
-            if self.auto_plays_count == 1 or (self.auto_plays_count % 3 == 0):
+            if self.rj_enabled and (self.auto_plays_count == 1 or (self.auto_plays_count % 3 == 0)):
                 rj_audio_url = self._get_station_rj_interlude()
                 if rj_audio_url:
                     print(f"[RJ] Station RJ interlude selected: {rj_audio_url}")
@@ -276,6 +280,15 @@ class RadioEngine:
         await self.broadcast_state()
         await manager.broadcast({"type": "play_next", "data": next_play})
         return next_play
+
+    def admin_toggle_rj(self, enabled: Optional[bool] = None) -> bool:
+        """Admin: toggle or set RJ announcements on/off."""
+        if enabled is not None:
+            self.rj_enabled = bool(enabled)
+        else:
+            self.rj_enabled = not self.rj_enabled
+        print(f"[RJ] Station RJ announcements are now: {'ON' if self.rj_enabled else 'OFF'}")
+        return self.rj_enabled
 
     def admin_reorder_upcoming(self, song_ids: List[int]) -> bool:
         """

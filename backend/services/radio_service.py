@@ -3,6 +3,7 @@ Radio Service — Delux Radio
 True server-controlled streaming with pre-planned upcoming queue.
 """
 import asyncio
+from datetime import datetime
 import random
 import time
 from typing import Optional, Dict, List
@@ -211,6 +212,15 @@ class RadioEngine:
                     song = req.get("song")
                     if song:
                         self.current_song = song
+
+                    # Mark request as completed in DB once served
+                    req_id = req.get("request_id")
+                    if req_id:
+                        db_req = db.query(Request).filter(Request.id == req_id).first()
+                        if db_req:
+                            db_req.status = "completed"
+                            db_req.processed_at = datetime.utcnow()
+                            db.commit()
 
                     rj_url = req.get("rj_audio_url") if self.rj_enabled else None
                     rj_dur = self._get_audio_file_duration(rj_url) if rj_url else 0.0

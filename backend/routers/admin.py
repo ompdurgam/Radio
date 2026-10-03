@@ -123,11 +123,16 @@ async def toggle_rj(x_admin_username: str = Header(None), x_admin_password: str 
 
 # ── Song Requests Queue ────────────────────────────────────────────────────────
 @router.get("/requests")
-def get_requests(x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
+def get_requests(all: bool = False, x_admin_username: str = Header(None), x_admin_password: str = Header(None)):
     _require_auth(x_admin_username, x_admin_password)
     db = SessionLocal()
     try:
-        reqs = db.query(Request).order_by(Request.created_at.desc()).limit(50).all()
+        query = db.query(Request)
+        if not all:
+            query = query.filter(Request.status.in_(["pending", "processing", "queued"]))
+            reqs = query.order_by(Request.created_at.asc()).all()
+        else:
+            reqs = query.order_by(Request.created_at.desc()).limit(50).all()
         result = []
         for r in reqs:
             song = r.song

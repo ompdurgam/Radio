@@ -26,6 +26,7 @@
       color: var(--text); 
       font-family: var(--font-ui); 
       -webkit-font-smoothing: antialiased; 
+      overflow: hidden; /* Prevent full page scroll */
     }
     ::selection { background: rgba(245,158,11,0.2); }
     ::-webkit-scrollbar { width: 6px; }
@@ -54,7 +55,7 @@
     .auth-error { color: #ef4444; font-size: 13px; margin-top: 12px; min-height: 18px; }
 
     /* Dashboard */
-    #dashboard { display: none; min-height: 100vh; padding-bottom: 40px; }
+    #dashboard { display: none; height: 100vh; overflow: hidden; }
 
     /* Header */
     .admin-header { 
@@ -70,36 +71,49 @@
     .admin-logo-text { font-family: 'Rozha One', serif; font-size: 20px; color: var(--text); }
     .admin-badge { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 600; color: var(--amber-dk); letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--font-display); }
     .header-right { display: flex; align-items: center; gap: 16px; }
-    .stat-chip { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; color: var(--muted); }
-    .stat-chip .val { color: var(--text); font-weight: 500; }
+    .stat-chip { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; color: var(--muted); user-select: none; transition: all 0.2s; }
+    .stat-chip .val { color: var(--text); font-weight: 600; }
+    .stat-chip.rj-on { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #059669; }
+    .stat-chip.rj-on .val { color: #059669; }
+    .stat-chip.rj-off { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25); color: #dc2626; }
+    .stat-chip.rj-off .val { color: #dc2626; }
+    .stat-chip[style*="cursor:pointer"]:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
     .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: livePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     .btn-logout { background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s; }
     .btn-logout:hover { color: var(--text); background: var(--bg); border-color: var(--border); }
 
     /* Layout */
-    .admin-body { max-width: 1200px; margin: 32px auto 0; padding: 0 24px; display: grid; grid-template-columns: 1fr 380px; gap: 32px; }
-    @media (max-width: 900px) { .admin-body { grid-template-columns: 1fr; } }
-    .left-col { display: flex; flex-direction: column; gap: 32px; }
+    .admin-body { max-width: 1200px; height: calc(100vh - 76px); margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 1fr 380px; gap: 24px; overflow: hidden; }
+    @media (max-width: 900px) { 
+      html, body { overflow-y: auto; height: auto; }
+      #dashboard { height: auto; overflow: visible; }
+      .admin-body { grid-template-columns: 1fr; height: auto; overflow: visible; padding-bottom: 40px; }
+      .left-col { height: auto; overflow: visible; }
+      .right-col { height: auto; overflow: visible; }
+      .catalog-scroll { max-height: 400px; }
+    }
+    .left-col { display: flex; flex-direction: column; gap: 24px; height: 100%; overflow: hidden; }
+    .right-col { display: flex; flex-direction: column; gap: 24px; height: 100%; overflow: hidden; padding-right: 4px; }
 
     /* Cards */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.02); }
-    .card-head { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+    .card-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
     .card-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; letter-spacing: 0.5px; color: var(--text); display: flex; align-items: center; gap: 8px; }
     .card-title::before { content: ''; width: 4px; height: 16px; background: var(--amber); border-radius: 2px; }
 
     /* Now Playing */
-    .np-body { padding: 24px; }
-    .np-inner { display: flex; align-items: center; gap: 20px; }
-    .np-thumb { width: 88px; height: 88px; border-radius: 12px; object-fit: cover; background: var(--deep); flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .np-body { padding: 16px 20px; }
+    .np-inner { display: flex; align-items: center; gap: 16px; }
+    .np-thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--deep); flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
     .np-info { flex: 1; min-width: 0; }
-    .np-on-air { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--amber-dk); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-    .np-title { font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-    .np-artist { font-size: 14px; color: var(--muted); }
-    .progress-wrap { margin-top: 16px; }
+    .np-on-air { font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--amber-dk); text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .np-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .np-artist { font-size: 13px; color: var(--muted); }
+    .progress-wrap { margin-top: 10px; }
     .progress-bg { height: 4px; background: var(--border); border-radius: 2px; position: relative; overflow: hidden; }
     .progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--amber); border-radius: 2px; width: 0%; transition: width 1s linear; }
-    .progress-times { display: flex; justify-content: space-between; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); margin-top: 8px; }
+    .progress-times { display: flex; justify-content: space-between; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); margin-top: 6px; }
 
     /* Skip */
     .btn-skip { display: flex; align-items: center; gap: 8px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13px; font-weight: 500; padding: 8px 16px; cursor: pointer; transition: all 0.2s; }
@@ -107,9 +121,9 @@
     .btn-skip:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* Queue */
-    .queue-body { padding: 8px 0; min-height: 120px; }
-    .queue-empty { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 20px; }
-    .queue-item { display: flex; align-items: center; gap: 12px; padding: 12px 24px; cursor: grab; transition: background 0.2s; border-bottom: 1px solid var(--bg); user-select: none; }
+    .queue-body { padding: 8px 0; flex: 1; overflow-y: auto; }
+    .queue-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 16px; }
+    .queue-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: grab; transition: background 0.2s; border-bottom: 1px solid var(--bg); user-select: none; }
     .queue-item:last-child { border-bottom: none; }
     .queue-item:hover { background: var(--bg); }
     .queue-item.dragging { opacity: 0.4; cursor: grabbing; background: var(--deep); }
@@ -117,106 +131,70 @@
     .q-rank { width: 24px; height: 24px; border-radius: 6px; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
     .q-rank.first { background: rgba(245,158,11,0.15); color: var(--amber-dk); }
     .q-handle { color: #94a3b8; font-size: 16px; flex-shrink: 0; cursor: grab; }
-    .q-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--deep); flex-shrink: 0; }
+    .q-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--deep); flex-shrink: 0; }
     .q-info { flex: 1; min-width: 0; }
-    .q-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-    .q-artist { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .btn-rm { background: none; border: none; color: #cbd5e1; font-size: 18px; cursor: pointer; padding: 4px; transition: color 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .q-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .q-artist { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-rm { background: none; border: none; color: #cbd5e1; font-size: 16px; cursor: pointer; padding: 4px; transition: color 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .btn-rm:hover { color: var(--red); }
 
-    .btn-save { margin: 16px 24px 24px; width: calc(100% - 48px); padding: 12px; border-radius: 10px; background: var(--text); border: none; color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-save { margin: 12px 16px 16px; width: calc(100% - 32px); padding: 11px; border-radius: 10px; background: var(--text); border: none; color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-save:hover:not(:disabled) { background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .btn-save:disabled { opacity: 0.3; cursor: not-allowed; }
 
-    /* Catalog */
-    .catalog-body { padding: 24px; }
-    .catalog-search { width: 100%; padding: 12px 16px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 14px; outline: none; margin-bottom: 16px; transition: all 0.2s; }
-    .catalog-search:focus { border-color: var(--amber); background: #ffffff; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
-    .catalog-scroll { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 8px; margin-right: -8px; }
-    .cat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; transition: background 0.2s; border: 1px solid transparent; }
-    .cat-item:hover { background: var(--bg); border-color: var(--border); }
-    .cat-info { flex: 1; min-width: 0; }
-    .cat-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-    .cat-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    
-    .btn-outline { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
-    .btn-outline:hover { background: var(--bg); border-color: #cbd5e1; }
-    .btn-primary:hover { background: var(--amber-dk); border-color: var(--amber-dk); box-shadow: 0 2px 6px rgba(245,158,11,0.2); }
-    .cat-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .btn-delete-song { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: #94a3b8; padding: 6px 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-    .btn-delete-song:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; color: #ef4444; }
-    .btn-delete-song:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* RJ Toggle Button */
-    .btn-rj-toggle {
-      display: flex; align-items: center; gap: 8px;
-      border-radius: 20px; padding: 6px 14px;
-      font-size: 13px; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: all 0.2s ease;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--muted);
-    }
-    .btn-rj-toggle.on {
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.3);
-      color: #059669;
-    }
-    .btn-rj-toggle.off {
-      background: rgba(239, 68, 68, 0.08);
-      border-color: rgba(239, 68, 68, 0.25);
-      color: #dc2626;
-    }
-    .btn-rj-toggle:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .rj-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: currentColor;
-    }
-    .btn-rj-toggle.on .rj-dot {
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
-    }
-
-    /* Requests Queue */
-    .requests-body { padding: 16px 20px; }
-    .requests-scroll { max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+    /* Listener Requests */
+    .req-scroll { max-height: 230px; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
     .req-card {
       background: var(--bg); border: 1px solid var(--border);
-      border-radius: 12px; padding: 14px 16px;
+      border-radius: 10px; padding: 10px 12px;
       transition: all 0.2s;
     }
-    .req-card:hover { border-color: #cbd5e1; background: #ffffff; }
-    .req-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
-    .req-user { font-size: 14px; font-weight: 600; color: var(--text); }
-    .req-song-title { font-size: 13px; font-weight: 500; color: var(--amber-dk); margin-top: 2px; }
-    .req-dedication { font-size: 12px; color: #ec4899; margin-top: 2px; }
-    .req-story { font-size: 12px; color: var(--muted); font-style: italic; margin-top: 4px; line-height: 1.4; background: rgba(0,0,0,0.02); padding: 6px 10px; border-radius: 6px; }
-    .req-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.05); }
-    .req-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; }
+    .req-card:hover { border-color: #cbd5e1; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+    .req-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .req-user { font-size: 12px; font-weight: 600; color: var(--text); }
+    .req-song-title { font-size: 12px; font-weight: 500; color: var(--amber-dk); margin-top: 2px; }
+    .req-dedication { font-size: 11px; color: #ec4899; margin-top: 2px; }
+    .req-story { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px; line-height: 1.4; background: rgba(0,0,0,0.02); padding: 4px 8px; border-radius: 6px; }
+    .req-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.05); }
+    .req-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
     .req-badge.queued { background: rgba(16,185,129,0.12); color: #059669; }
+    .req-badge.pending { background: rgba(245,158,11,0.15); color: var(--amber-dk); }
     .req-badge.processing { background: rgba(245,158,11,0.15); color: var(--amber-dk); }
     .req-badge.played { background: rgba(148,163,184,0.15); color: #64748b; }
     .req-badge.rejected { background: rgba(239,68,68,0.12); color: #dc2626; }
-    .req-actions { display: flex; align-items: center; gap: 8px; }
+    .req-actions { display: flex; align-items: center; gap: 6px; }
     .btn-play-next {
       background: var(--amber); border: none; border-radius: 6px;
       color: #fff; font-size: 11px; font-weight: 600;
-      padding: 4px 10px; cursor: pointer; transition: background 0.2s;
+      padding: 4px 8px; cursor: pointer; transition: background 0.2s;
     }
     .btn-play-next:hover { background: var(--amber-dk); }
     .btn-del-req {
       background: transparent; border: 1px solid var(--border);
       border-radius: 6px; color: #ef4444; font-size: 11px; font-weight: 500;
-      padding: 4px 8px; cursor: pointer; transition: all 0.2s;
+      padding: 4px 6px; cursor: pointer; transition: all 0.2s;
     }
     .btn-del-req:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
-    .req-count-badge {
-      font-size: 12px; font-weight: 600;
-      background: rgba(245,158,11,0.15); color: var(--amber-dk);
-      padding: 2px 8px; border-radius: 12px;
-    }
+
+    /* Catalog */
+    .catalog-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 16px 20px; }
+    .catalog-search { flex-shrink: 0; width: 100%; padding: 11px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 13px; outline: none; margin-bottom: 12px; transition: all 0.2s; }
+    .catalog-search:focus { border-color: var(--amber); background: #ffffff; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+    .catalog-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 6px; margin-right: -6px; }
+    .cat-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; transition: background 0.2s; border: 1px solid transparent; }
+    .cat-item:hover { background: var(--bg); border-color: var(--border); }
+    .cat-info { flex: 1; min-width: 0; }
+    .cat-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .cat-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cat-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    
+    .btn-outline { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 12px; font-weight: 500; padding: 5px 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
+    .btn-outline:hover { background: var(--bg); border-color: #cbd5e1; }
+    .btn-primary { background: var(--amber); border: 1px solid var(--amber); border-radius: 8px; color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    .btn-primary:hover { background: var(--amber-dk); border-color: var(--amber-dk); box-shadow: 0 2px 6px rgba(245,158,11,0.2); }
+    .btn-delete-song { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: #94a3b8; padding: 5px 7px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+    .btn-delete-song:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; color: #ef4444; }
+    .btn-delete-song:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* Modals */
     .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
@@ -271,10 +249,7 @@
       <div class="stat-chip"><div class="live-dot"></div><span>LIVE</span></div>
       <div class="stat-chip">👂 <span class="val" id="hdr-listeners">0</span></div>
       <div class="stat-chip">Mode: <span class="val" id="hdr-mode" style="text-transform: capitalize;">auto</span></div>
-      <button class="btn-rj-toggle on" id="btn-toggle-rj" title="Toggle AI RJ on-air voice announcements">
-        <span class="rj-dot"></span>
-        <span id="rj-toggle-label">🎙️ RJ: ON</span>
-      </button>
+      <div class="stat-chip" style="cursor:pointer;" id="toggle-rj" title="Click to toggle RJ features">🎙️ RJ: <span class="val" id="hdr-rj">OFF</span></div>
       <button class="btn-logout" id="btn-logout">Sign out</button>
     </div>
   </header>
@@ -283,8 +258,8 @@
     <!-- Left -->
     <div class="left-col">
       <!-- Now Playing -->
-      <div class="card">
-        <div class="card-head">
+      <div class="card" style="flex-shrink: 0; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div class="card-head" style="padding: 12px 20px;">
           <span class="card-title">Now Playing</span>
           <button class="btn-skip" id="btn-skip" disabled>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
@@ -312,26 +287,8 @@
         </div>
       </div>
 
-      <!-- Song Requests Queue -->
-      <div class="card">
-        <div class="card-head">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span class="card-title">Song Requests Queue</span>
-            <span class="req-count-badge" id="requests-count">0</span>
-          </div>
-          <button class="btn-outline" id="btn-refresh-requests" style="font-size:12px; padding:6px 12px;">
-            🔄 Refresh
-          </button>
-        </div>
-        <div class="requests-body">
-          <div class="requests-scroll" id="requests-list">
-            <div class="queue-empty">Loading song requests…</div>
-          </div>
-        </div>
-      </div>
-
       <!-- Catalog -->
-      <div class="card">
+      <div class="card" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
         <div class="card-head">
           <div style="display: flex; align-items: center; gap: 12px;">
             <span class="card-title">Song Catalog</span>
@@ -351,16 +308,30 @@
       </div>
     </div>
 
-    <!-- Right: Queue -->
-    <div class="card" style="align-self:start;position:sticky;top:88px;">
-      <div class="card-head">
-        <span class="card-title">Up Next</span>
-        <span style="font-size:12px;color:var(--muted)">Drag to reorder</span>
+    <!-- Right: Queues -->
+    <div class="right-col">
+      <!-- Listener Requests -->
+      <div class="card" style="flex-shrink: 0; border-color: rgba(245,158,11,0.3); box-shadow: 0 4px 12px rgba(245,158,11,0.05); max-height: 280px; display: flex; flex-direction: column;">
+        <div class="card-head" style="background: rgba(245,158,11,0.05); border-bottom-color: rgba(245,158,11,0.2); padding: 12px 16px;">
+          <span class="card-title" style="color: var(--amber-dk);">Listener Requests</span>
+          <span style="font-size:11px;font-weight:600;color:var(--amber-dk);background:rgba(245,158,11,0.15);padding:2px 6px;border-radius:4px;" id="requests-count">PRIORITY</span>
+        </div>
+        <div class="queue-body req-scroll" id="request-queue-list">
+          <div class="queue-empty">No active requests</div>
+        </div>
       </div>
-      <div class="queue-body" id="queue-list">
-        <div class="queue-empty">Loading queue…</div>
+
+      <!-- Up Next Queue -->
+      <div class="card" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="card-head" style="padding: 12px 16px;">
+          <span class="card-title">Up Next</span>
+          <span style="font-size:12px;color:var(--muted)">Drag to reorder</span>
+        </div>
+        <div class="queue-body" id="queue-list">
+          <div class="queue-empty">Loading queue…</div>
+        </div>
+        <button class="btn-save" id="btn-save" disabled>Save Queue Order</button>
       </div>
-      <button class="btn-save" id="btn-save" disabled>Save Queue Order</button>
     </div>
   </div>
 </div>
@@ -407,6 +378,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/js/admin.js"></script>
+<script src="/js/admin.js?v=4"></script>
 </body>
 </html>

@@ -133,6 +133,12 @@ const Admin = (() => {
 
     // RJ toggle
     if (s.rj_enabled !== undefined) {
+      const rjChip = $('toggle-rj');
+      const rjVal = $('hdr-rj');
+      if (rjChip && rjVal) {
+        rjChip.className = `stat-chip ${s.rj_enabled ? 'rj-on' : 'rj-off'}`;
+        rjVal.textContent = s.rj_enabled ? 'ON' : 'OFF';
+      }
       const rjBtn = $('btn-toggle-rj');
       const rjLabel = $('rj-toggle-label');
       if (rjBtn && rjLabel) {
@@ -212,21 +218,30 @@ const Admin = (() => {
 
   // ── RJ On/Off Toggle ─────────────────────────────────────────────────────────
   function _initRjToggle() {
-    const btn = $('btn-toggle-rj');
+    const btn = $('toggle-rj') || $('btn-toggle-rj');
     if (!btn) return;
     btn.addEventListener('click', async () => {
-      btn.disabled = true;
+      btn.style.pointerEvents = 'none';
       try {
         const res = await _api('POST', '/rj/toggle');
         const enabled = res.rj_enabled;
-        btn.className = `btn-rj-toggle ${enabled ? 'on' : 'off'}`;
-        const label = $('rj-toggle-label');
-        if (label) label.textContent = enabled ? '🎙️ RJ: ON' : '🎙️ RJ: OFF';
+        const rjChip = $('toggle-rj');
+        const rjVal = $('hdr-rj');
+        if (rjChip && rjVal) {
+          rjChip.className = `stat-chip ${enabled ? 'rj-on' : 'rj-off'}`;
+          rjVal.textContent = enabled ? 'ON' : 'OFF';
+        }
+        const rjBtn = $('btn-toggle-rj');
+        const rjLabel = $('rj-toggle-label');
+        if (rjBtn && rjLabel) {
+          rjBtn.className = `btn-rj-toggle ${enabled ? 'on' : 'off'}`;
+          rjLabel.textContent = enabled ? '🎙️ RJ: ON' : '🎙️ RJ: OFF';
+        }
         _toast(`🎙️ AI RJ announcements turned ${enabled ? 'ON' : 'OFF'}`, 'ok');
       } catch {
         _toast('Failed to toggle RJ state', 'err');
       } finally {
-        btn.disabled = false;
+        btn.style.pointerEvents = 'auto';
       }
     });
   }
@@ -250,7 +265,7 @@ const Admin = (() => {
       if (!data.success) return;
       _renderRequests(data.requests || []);
     } catch {
-      const list = $('requests-list');
+      const list = $('request-queue-list') || $('requests-list');
       if (list && !list.querySelector('.req-card')) {
         list.innerHTML = '<div class="queue-empty" style="color:var(--red);">Failed to load requests</div>';
       }
@@ -258,19 +273,28 @@ const Admin = (() => {
   }
 
   function _renderRequests(requests) {
-    const list = $('requests-list');
+    const list = $('request-queue-list') || $('requests-list');
     const badge = $('requests-count');
     if (!list) return;
 
-    if (badge) badge.textContent = requests ? requests.length : 0;
+    // Filter to active, unserved requests only
+    const activeRequests = (requests || []).filter(r => {
+      const st = (r.status || '').toLowerCase();
+      return !['completed', 'played', 'rejected'].includes(st);
+    });
 
-    if (!requests || requests.length === 0) {
-      list.innerHTML = '<div class="queue-empty">No listener song requests yet</div>';
+    if (badge) {
+      const count = activeRequests.length;
+      badge.textContent = count > 0 ? `${count} NEW` : 'PRIORITY';
+    }
+
+    if (!activeRequests.length) {
+      list.innerHTML = '<div class="queue-empty">No active requests</div>';
       return;
     }
 
     list.innerHTML = '';
-    requests.forEach(r => {
+    activeRequests.forEach(r => {
       const item = document.createElement('div');
       item.className = 'req-card';
 

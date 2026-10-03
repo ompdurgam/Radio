@@ -36,24 +36,25 @@ echo   --help, -h      Show this help message
 exit /b 0
 
 :after_args
-if "%SEED_CHOICE%"=="" (
-    echo Select Song Catalog Option:
-    echo   [1] Seed songs from songs_links.csv (Default)
-    echo   [2] Start with NO songs (Empty catalog)
-    choice /c 12 /t 5 /d 1 /m "Choose [1/2] (auto-selects 1 in 5s): " >nul 2>&1
-    if !errorlevel! equ 2 (
+if not "%SEED_CHOICE%"=="" goto after_prompt
+echo Select Song Catalog Option:
+echo   [1] Seed songs from songs_links.csv [Default]
+echo   [2] Start with NO songs [Empty catalog]
+set SEED_CHOICE=seed
+choice /c 12 /t 5 /d 1 /m "Choose [1/2] (auto-selects 1 in 5s): " >nul 2>&1
+if errorlevel 2 (
+    if not errorlevel 3 (
         set SEED_CHOICE=no-seed
-    ) else (
-        set SEED_CHOICE=seed
     )
 )
+:after_prompt
 
 if "%SEED_CHOICE%"=="no-seed" (
     set DELUX_NO_SEED=1
-    echo  [MODE] Catalog: NO SONGS (Empty Catalog)
+    echo  [MODE] Catalog: NO SONGS [Empty Catalog]
 ) else (
     set DELUX_NO_SEED=0
-    echo  [MODE] Catalog: SEEDED SONGS (from songs_links.csv)
+    echo  [MODE] Catalog: SEEDED SONGS [from songs_links.csv]
 )
 echo.
 
@@ -114,7 +115,7 @@ if errorlevel 1 (
 echo.
 
 :: [4/5] Check & Update yt-dlp
-echo  [4/5] Updating yt-dlp & extensions...
+echo  [4/5] Updating yt-dlp ^& extensions...
 pip install "yt-dlp[default]" "yt-dlp-ejs" --pre -U -q --no-warn-script-location >nul 2>&1
 for /f "tokens=*" %%V in ('python -c "import yt_dlp; print(yt_dlp.version.__version__)" 2^>nul') do (
     echo  [OK] yt-dlp is at version %%V
@@ -141,10 +142,10 @@ if errorlevel 1 (
 
 curl -s -m 2 http://localhost:11434/api/tags >nul 2>&1
 if not errorlevel 1 (
-    echo  [OK] Ollama AI is running (cinematic RJ generation active).
+    echo  [OK] Ollama AI is running [cinematic RJ generation active].
 ) else (
     echo  [INFO] Ollama is not running. Delux Radio will use built-in radio scripts.
-    echo         (Optional: run 'ollama run llama3' for live AI voice scripts)
+    echo         [Optional: run 'ollama run llama3' for live AI voice scripts]
 )
 echo.
 

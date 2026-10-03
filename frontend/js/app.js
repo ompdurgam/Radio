@@ -255,13 +255,22 @@ const App = (() => {
     if (!state.isPlaying) return;
 
     if (data.rj_audio_url && song) {
-      // Play RJ announcement first, then load the song at the accurate radio offset
+      // Play RJ announcement while background song is playing at ducked volume
       const bannerText = data.type === 'request'
         ? 'A special listener dedication is coming up on Delux Radio…'
         : 'RJ Priya is on air — Reliving the golden 90s…';
+
+      // Start the background song immediately from the beginning
+      const offset = _getSyncOffset();
+      _loadYTSong(song, offset);
+
+      // Duck the background song volume so the RJ voice clearly dominates
+      const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
+      Player.setVolume(duckedVol);
+
       _playRJAnnouncement(data.rj_audio_url, () => {
-        const offset = _getSyncOffset();
-        _loadYTSong(song, offset);
+        // When RJ voice concludes, smoothly swell song volume up to full listener volume
+        _fadeSongVolume(duckedVol, state.volume, 1400);
       }, bannerText);
     } else if (song) {
       // Server just started this song — calculate live radio offset
@@ -292,21 +301,73 @@ const App = (() => {
     Player.loadVideo(song.youtube_video_id, true, seekTo);
   }
 
+  let _fadeAnimId = null;
+  function _fadeSongVolume(fromVol, toVol, durationMs = 1400) {
+    if (_fadeAnimId) cancelAnimationFrame(_fadeAnimId);
+    if (state.isMuted || toVol === 0) {
+      Player.setVolume(0);
+      return;
+    }
+    const start = performance.now();
+    function tick(now) {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / durationMs);
+      const factor = 1 - Math.pow(1 - progress, 2);
+      const current = Math.round(fromVol + (toVol - fromVol) * factor);
+      Player.setVolume(current);
+      if (progress < 1) {
+        _fadeAnimId = requestAnimationFrame(tick);
+      } else {
+        Player.setVolume(toVol);
+        _fadeAnimId = null;
+      }
+    }
+    _fadeAnimId = requestAnimationFrame(tick);
+  }
+
   function _playRJAnnouncement(url, onDone, bannerText) {
-    Player.setVolume(20);
     state.rjPlaying = true;
     _showRJBanner(bannerText);
 
+    if (_fadeAnimId) {
+      cancelAnimationFrame(_fadeAnimId);
+      _fadeAnimId = null;
+    }
+
+    // Duck background song to ~16% volume (subtle bed so RJ voice dominates)
+    const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
+    Player.setVolume(duckedVol);
+
+    if (state.rjAudio) {
+      try { state.rjAudio.pause(); } catch (e) {}
+      state.rjAudio = null;
+    }
+
     const audio = new Audio(url);
+    // RJ speech plays at full master listening level
+    audio.volume = state.isMuted ? 0 : Math.min(1.0, (state.volume || 80) / 100);
+    audio.muted = state.isMuted;
+    state.rjAudio = audio;
+
+    let finished = false;
     const finish = () => {
+      if (finished) return;
+      finished = true;
       state.rjPlaying = false;
-      Player.setVolume(state.volume);
+      state.rjAudio = null;
       _hideRJBanner();
       if (onDone) onDone();
     };
+
     audio.addEventListener('ended', finish);
-    audio.addEventListener('error', finish);
-    audio.play().catch(finish);
+    audio.addEventListener('error', (err) => {
+      console.warn('[RJ] Audio error:', err);
+      finish();
+    });
+    audio.play().catch(e => {
+      console.warn('[RJ] Autoplay prevented:', e);
+      finish();
+    });
   }
 
   // ── Controls ───────────────────────────────────────────────────────────────
@@ -320,10 +381,19 @@ const App = (() => {
       vol.style.setProperty('--pct', `${state.volume}%`);
       vol.addEventListener('input', e => {
         state.volume = parseInt(e.target.value);
-        Player.setVolume(state.volume);
         e.target.style.setProperty('--pct', `${state.volume}%`);
         const muteBtn = $('btn-mute');
         if (muteBtn) muteBtn.textContent = state.volume === 0 ? '🔇' : '🔊';
+
+        if (state.rjPlaying) {
+          const ducked = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
+          Player.setVolume(ducked);
+          if (state.rjAudio) {
+            state.rjAudio.volume = Math.min(1.0, state.volume / 100);
+          }
+        } else {
+          Player.setVolume(state.volume);
+        }
       });
     }
 
@@ -331,6 +401,9 @@ const App = (() => {
     $('btn-mute')?.addEventListener('click', () => {
       state.isMuted = !state.isMuted;
       Player.setMuted(state.isMuted);
+      if (state.rjAudio) {
+        state.rjAudio.muted = state.isMuted;
+      }
       const btn = $('btn-mute');
       if (btn) btn.textContent = state.isMuted ? '🔇' : '🔊';
     });
@@ -429,6 +502,9 @@ const App = (() => {
       // Pause
       state.isPlaying = false;
       Player.pause();
+      if (state.rjAudio) {
+        try { state.rjAudio.pause(); } catch (e) {}
+      }
       _updatePlayBtn(false);
       _stopEq();
       $('cover-disc')?.classList.remove('spinning');
@@ -439,12 +515,20 @@ const App = (() => {
     state.isPlaying = true;
     _updatePlayBtn(true);
 
+    if (state.rjAudio && !state.rjAudio.ended) {
+      state.rjAudio.play().catch(() => {});
+    }
+
     // Enforce global sync on play: Always reload the video at the current live offset.
     // This ensures no nanosecond delay across devices when a user "tunes in" after stopping.
     if (state.currentSong?.youtube_video_id) {
       const offset = _getSyncOffset();
       console.log(`[Sync] Play pressed — joining at ${offset.toFixed(1)}s`);
       _loadYTSong(state.currentSong, offset);
+      if (state.rjPlaying) {
+        const duckedVol = state.volume > 0 ? Math.max(5, Math.min(18, Math.round(state.volume * 0.16))) : 0;
+        Player.setVolume(duckedVol);
+      }
       _refreshSyncBackground();
       return;
     }

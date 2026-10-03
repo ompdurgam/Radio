@@ -58,8 +58,8 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
             # Fade in bg music
             bg = bg.fade_in(1500)
 
-            # Duck music under voice (-14 dB gives radio feel)
-            bg_ducked = bg - 14
+            # Duck music under voice (-20 dB ensures RJ voice strongly dominates)
+            bg_ducked = bg - 20
 
             # Overlay voice on ducked music
             final = bg_ducked.overlay(voice, position=500)

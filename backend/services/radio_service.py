@@ -23,6 +23,7 @@ class RadioEngine:
         self.song_duration:   float = _DEFAULT_SONG_DURATION
         self._duration_confirmed: bool = False
         self.current_rj_url: Optional[str] = None
+        self.rj_ends_at: float = 0.0
         self.rj_enabled: bool = True
 
         # Pre-planned upcoming songs (admin can reorder these)
@@ -67,7 +68,7 @@ class RadioEngine:
     # ── State snapshot ─────────────────────────────────────────────────────────
     def to_dict(self) -> Dict:
         now = time.time()
-        is_rj_active = bool(self.current_rj_url and (now < self.song_started_at))
+        is_rj_active = bool(self.current_rj_url and (now < self.rj_ends_at))
         return {
             "current_song":    self.current_song,
             "song_started_at": self.song_started_at,
@@ -188,9 +189,6 @@ class RadioEngine:
             if not self.is_playing or not self.song_started_at:
                 continue
             now = time.time()
-            # If still in RJ announcement interlude, wait for song to actually start
-            if now < self.song_started_at:
-                continue
             elapsed = now - self.song_started_at
             if elapsed >= self.song_duration + 1:
                 print(f"[SKIP] [{elapsed:.0f}s/{self.song_duration:.0f}s] Advancing...")
@@ -225,9 +223,9 @@ class RadioEngine:
                     rj_url = req.get("rj_audio_url") if self.rj_enabled else None
                     rj_dur = self._get_audio_file_duration(rj_url) if rj_url else 0.0
                     self.current_rj_url = rj_url
-
-                    # Song timing starts right after the RJ announcement ends
-                    self.song_started_at     = time.time() + rj_dur
+                    now = time.time()
+                    self.rj_ends_at          = now + rj_dur if rj_dur > 0 else 0.0
+                    self.song_started_at     = now
                     self.song_duration       = float(song.get("duration") or _DEFAULT_SONG_DURATION) if song else _DEFAULT_SONG_DURATION
                     self._duration_confirmed = False
                     self._refill_upcoming(db)
@@ -261,9 +259,11 @@ class RadioEngine:
 
             rj_dur = self._get_audio_file_duration(rj_audio_url) if rj_audio_url else 0.0
             self.current_rj_url = rj_audio_url
+            now = time.time()
+            self.rj_ends_at          = now + rj_dur if rj_dur > 0 else 0.0
 
             self.current_song        = song
-            self.song_started_at     = time.time() + rj_dur
+            self.song_started_at     = now
             self.song_duration       = float(song.get("duration") or _DEFAULT_SONG_DURATION)
             self._duration_confirmed = False
 

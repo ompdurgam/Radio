@@ -1,0 +1,1193 @@
+That makes Delux Radio a continuous station, not a request-only player.
+
+The core behavior should be:
+
+                         📻 DELUX RADIO
+                              │
+                              ↓
+                     IS A SONG PLAYING?
+                              │
+                   ┌──────────┴──────────┐
+                   ↓                     ↓
+                  YES                    NO
+                   │                     │
+                   ↓                     ↓
+                LISTEN             AUTO SELECT
+                   │               90s SONG
+                   │                     │
+                   │                     ↓
+                   │              PLAY FROM YOUTUBE
+                   │                     │
+                   │                     ↓
+                   │                  LISTEN
+                   │
+                   └──────────┬──────────┘
+                              ↓
+                    NEW REQUEST ARRIVES?
+                              │
+                   ┌──────────┴──────────┐
+                   ↓                     ↓
+                  YES                    NO
+                   │                     │
+                   ↓                     ↓
+            QUEUE REQUEST          CONTINUE RADIO
+                   │
+                   ↓
+            🎙️ RJ ANNOUNCEMENT
+                   │
+                   ↓
+              🎵 REQUESTED
+                 90s SONG
+                   │
+                   ↓
+             BACK TO AUTO RADIO
+So Delux has two modes
+
+🟢 Automatic Radio
+
+When nobody requests anything:
+
+90s song → 90s song → 90s song → …
+
+The system automatically selects songs from your approved 90s catalog.
+
+🟡 Request Mode
+
+When someone submits a valid request:
+
+Request → moderation → queue → realistic female RJ announcement → requested song → automatic radio resumes.
+
+Important: don't make the request interrupt the current song
+
+I would use a queue.
+
+Example:
+
+NOW PLAYING
+🎵 Song A
+       │
+       ├── Rahul requests Song B
+       ├── Priya requests Song C
+       └── Aman requests Song D
+                  ↓
+             REQUEST QUEUE
+                  ↓
+           🎙️ RJ ANNOUNCEMENT
+                  ↓
+             🎵 Song B
+                  ↓
+             🎵 Song C
+                  ↓
+             🎵 Song D
+                  ↓
+          AUTOMATIC RADIO
+
+That makes it feel like a real radio station rather than a playlist controlled by individual users.
+
+And the Play/Pause button remains the only playback control for the listener:
+
+▶ Play / ⏸ Pause — no Next, Previous, Forward, or Seek.
+
+give me entire project dicription and everything and all flow etc 
+
+Absolutely. Based on everything you've specified, here is the complete Delux Radio project specification—without adding unrelated salon/booking functionality.
+
+DELUX RADIO — COMPLETE PROJECT SPECIFICATION
+1. Product concept
+
+Delux Radio is a nostalgic, browser-based 90s Indian music radio experience.
+
+The core experience is:
+
+Open Delux → Play → Listen → Chat → Request a song → Hear a realistic female RJ announce the request → Song plays → Radio continues automatically.
+
+The listener should feel like they have tuned into a real 90s-era Indian radio station, not opened a normal music player.
+
+Core pillars
+                    DELUX RADIO
+                         │
+          ┌──────────────┼──────────────┐
+          ↓              ↓              ↓
+       📻 RADIO        💬 CHAT       🎵 REQUEST
+          │                             │
+          ↓                             ↓
+       LISTEN                     DEDICATION
+                                        │
+                                        ↓
+                                  🎙️ FEMALE RJ
+                                        │
+                                        ↓
+                                  🎵 90s SONG
+2. Radio experience
+
+The radio is the main product.
+
+When the user opens Delux Radio:
+
+OPEN WEBSITE
+    ↓
+DELUX RADIO
+    ↓
+▶ PLAY
+    ↓
+LISTEN
+
+The player should intentionally be extremely simple.
+
+Allowed controls
+▶ Play
+⏸ Pause
+🔊 Volume
+Mute
+Current song information
+Not allowed
+❌ Next
+❌ Previous
+❌ Skip
+❌ Forward
+❌ Rewind
+❌ Seek
+❌ User-controlled playlist
+
+The philosophy is:
+
+You don't choose what comes next. You tune into Delux and let Delux choose.
+
+3. Automatic radio
+
+If nobody requests anything, Delux automatically keeps playing 90s songs.
+
+             DELUX RADIO
+                  ↓
+             PLAY SONG
+                  ↓
+               FINISH
+                  ↓
+         AUTOMATIC SONG SELECTOR
+                  ↓
+           SELECT 90s SONG
+                  ↓
+           YOUTUBE PLAYER
+                  ↓
+               PLAY
+                  ↓
+              FINISH
+                  ↓
+               REPEAT
+
+So the radio never depends on users making requests.
+
+Example
+🎵 Song A
+   ↓
+🎵 Song B
+   ↓
+🎵 Song C
+   ↓
+🎵 Song D
+   ↓
+🎵 Song E
+   ↓
+...
+
+The automatic selection comes from your approved 90s catalog, not random YouTube search results.
+
+4. YouTube as song source
+
+You specified:
+
+Songs must play from YouTube only.
+
+So the architecture should be:
+
+              DELUX BACKEND
+                    │
+                    ↓
+             APPROVED SONG DB
+                    │
+                    ↓
+              YouTube Video ID
+                    │
+                    ↓
+            YouTube Embedded Player
+                    │
+                    ↓
+               DELUX RADIO
+
+Do not download YouTube audio and serve it yourself.
+
+The system stores the relevant YouTube video information and uses the supported YouTube player/API approach.
+
+5. 90s-only music rule
+
+Delux should be a 90s-only station.
+
+The catalog should contain verified songs such as:
+
+Song
+Artist
+Movie / Album
+Release Year
+Language
+YouTube Video ID
+Active / Inactive
+
+Example:
+
+Song:      Example Song
+Artist:    Example Artist
+Year:      1997
+Language:  Hindi
+YouTube:   VIDEO_ID
+Status:    Active
+Important
+
+Don't trust the user's claim:
+
+“This is a 1998 song.”
+
+The backend should verify the song against your curated catalog.
+
+Therefore:
+
+USER REQUEST
+     ↓
+SEARCH YOUR SONG DATABASE
+     ↓
+FOUND?
+ ┌───┴────┐
+NO       YES
+│         │
+↓         ↓
+REJECT   CHECK YEAR
+           │
+       ┌───┴───┐
+       ↓       ↓
+     1990s   OTHER
+       │       │
+       ↓       ↓
+     ACCEPT   REJECT
+6. Song request system
+
+The user opens:
+
+🎵 Request
+
+Then:
+
+REQUEST A SONG
+
+
+Song name *
+[____________________]
+
+
+Your name *
+[____________________]
+
+
+For someone? 
+[____________________]
+
+
+❤️ Dedication / short story
+[____________________
+ ____________________
+ ____________________]
+
+
+[ SEND REQUEST ]
+
+The story is optional.
+
+The user could simply say:
+
+“For Pooja ❤️”
+
+Or tell a short memory:
+
+“We met in school in 2005. This song reminds me of those days.”
+
+7. Request moderation
+
+Every user-generated field should be checked.
+
+That means:
+
+Song name
+Your name
+For someone
+Story
+
+all go through moderation.
+
+             USER REQUEST
+                   ↓
+              MODERATION
+                   ↓
+          ┌────────┴────────┐
+          ↓                 ↓
+       UNSAFE              SAFE
+          │                 │
+          ↓                 ↓
+    ❌ CANCEL          CONTINUE
+
+Unsafe content includes things such as:
+
+Abusive/foul language
+Slurs
+Sexual/explicit text
+Harassment
+Hate-related content
+Attempts to bypass the filter with altered spellings
+
+If anything fails:
+
+❌ Request cancelled. Please enter a valid request.
+
+Crucially, the rejected content should never reach the public request display or TTS system.
+
+8. Request queue
+
+A request should not interrupt the song currently playing.
+
+Example:
+
+NOW PLAYING
+🎵 Song A
+
+
+        ↓
+
+
+Rahul → Song B
+Priya → Song C
+Aman  → Song D
+
+
+        ↓
+
+
+REQUEST QUEUE
+
+The current song finishes.
+
+Then the queue is processed.
+
+CURRENT SONG
+     ↓
+FINISH
+     ↓
+REQUEST QUEUE?
+     ↓
+YES
+     ↓
+PROCESS FIRST REQUEST
+     ↓
+RJ ANNOUNCEMENT
+     ↓
+REQUESTED SONG
+     ↓
+NEXT REQUEST
+
+After the queue is empty:
+
+REQUEST QUEUE EMPTY
+        ↓
+AUTOMATIC RADIO
+        ↓
+90s SONG
+9. Realistic female RJ
+
+This is one of the most important parts of the project.
+
+The system should not sound like:
+
+“This request is from Rahul for Pooja.”
+
+It should sound like a real female radio jockey.
+
+Persona
+DELUX RJ
+
+
+Female
+Indian
+Warm
+Natural
+Nostalgic
+Conversational
+Slightly playful
+Emotionally expressive
+Radio-host personality
+Natural pauses
+Natural breathing
+Natural pronunciation
+Hinglish capable
+90s Bollywood atmosphere
+
+The listener should feel:
+
+“There is actually an RJ hosting this station.”
+
+10. Llama 3
+
+Since you prefer Llama 3, use Llama 3 as the creative/story engine.
+
+              USER STORY
+                   ↓
+                LLAMA 3
+                   ↓
+          STORY UNDERSTANDING
+                   ↓
+          EMOTION / CONTEXT
+                   ↓
+          CINEMATIC RJ SCRIPT
+
+Llama should not simply repeat the user's text.
+
+User writes
+
+“I met Pooja in school in 2005. She used to sit near the window. We never spoke much. Years later we met again.”
+
+Llama creates a natural radio script:
+
+“Some memories really do know how to find their way back to us. Rahul remembers meeting Pooja back in 2005… a classroom, a window seat, and all the things he never found the courage to say…”
+
+Then the script ends with the song introduction.
+
+11. Cinematic story mode
+
+This is the special feature you wanted.
+
+The user can submit a short story.
+
+The system turns it into a maximum approximately 60-second cinematic radio moment.
+
+USER STORY
+    ↓
+MODERATION
+    ↓
+LLAMA 3
+    ↓
+UNDERSTAND STORY
+    ↓
+IDENTIFY EMOTION
+    ↓
+WRITE CINEMATIC SCRIPT
+    ↓
+REALISTIC FEMALE RJ
+    ↓
+MUSIC
+    +
+AMBIENCE
+    +
+SFX
+    ↓
+~60 SECOND EXPERIENCE
+Possible story styles
+
+The AI can classify the story as:
+
+❤️ Romantic
+🥹 Emotional
+🕰️ Nostalgic
+😄 Funny
+💔 Heartbreak
+👨‍👩‍👧 Family
+🧑‍🤝‍🧑 Friendship
+🎓 School
+🎓 College
+12. Cinematic audio
+
+Don't make the voice a single flat TTS file.
+
+Build it as layers.
+
+              CINEMATIC STORY
+                     │
+       ┌─────────────┼─────────────┐
+       ↓             ↓             ↓
+    🎙️ VOICE       🎵 MUSIC      🔊 SFX
+       │             │             │
+       └─────────────┼─────────────┘
+                     ↓
+               AUDIO MIXER
+                     ↓
+              FINAL AUDIO
+
+Example:
+
+00:00
+Soft ambience
+
+
+00:03
+Female RJ begins
+
+
+00:15
+Nostalgic music enters
+
+
+00:30
+Voice becomes emotional
+
+
+00:42
+Music rises
+
+
+00:52
+RJ gives dedication
+
+
+00:58
+Song introduction
+
+
+01:00
+🎵 SONG
+
+Music should automatically duck underneath the voice.
+
+13. TTS architecture
+
+Don't make Llama generate audio.
+
+Use:
+
+LLAMA 3
+   ↓
+TEXT / PERFORMANCE SCRIPT
+   ↓
+TTS MODEL
+   ↓
+FEMALE RJ AUDIO
+
+For local development, you can test expressive local TTS options such as Qwen3-TTS, Chatterbox, or Fish Speech and choose based on the voice quality you get on your hardware.
+
+The LLM and TTS are separate.
+
+14. Voice generation should be segmented
+
+Instead of:
+
+60-second script
+      ↓
+one TTS call
+      ↓
+audio
+
+I'd use:
+
+INTRO
+ ↓
+TTS
+
+
+MEMORY
+ ↓
+TTS
+
+
+EMOTIONAL MOMENT
+ ↓
+TTS
+
+
+DEDICATION
+ ↓
+TTS
+
+
+SONG INTRO
+ ↓
+TTS
+
+Then combine them.
+
+This gives you much more control over:
+
+Pauses
+Emotion
+Speed
+Music
+SFX
+Volume
+Timing
+15. Chat
+
+Chat is the second major feature.
+
+💬 CHAT
+   ↓
+JOIN
+   ↓
+LIVE CHAT
+
+Example:
+
+Rahul:
+This song 😭❤️
+
+
+Pooja:
+90s songs are different!
+
+
+Aman:
+Bhai childhood memories 😂
+
+
+Priya:
+What a song!
+
+Chat should feel like people listening to the same radio together.
+
+16. Chat moderation
+
+Chat should have its own moderation.
+
+USER MESSAGE
+     ↓
+MODERATION
+     ↓
+ ┌───┴────┐
+ ↓        ↓
+BAD      CLEAN
+ ↓        ↓
+BLOCK    CHAT
+
+Potential controls:
+
+Profanity filtering
+Spam protection
+Flood/rate limiting
+Slur detection
+Harassment detection
+Duplicate-message detection
+Temporary mute
+IP/session protection
+Admin moderation
+17. Complete request workflow
+
+This is the central workflow you've defined:
+
+                         DELUX RADIO
+                              │
+              ┌───────────────┼────────────────┐
+              ↓               ↓                ↓
+           📻 PLAY          💬 CHAT          🎵 REQUEST
+              │               │                │
+              ↓               ↓                ↓
+            LISTEN        JOIN CHAT       REQUEST A SONG
+              │                                │
+              │                                ↓
+              │                         ENTER SONG NAME
+              │                                │
+              │                                ↓
+              │                          ENTER YOUR NAME
+              │                                │
+              │                                ↓
+              │                     ❤️ OPTIONAL STORY
+              │                                │
+              │                                ↓
+              │                         SUBMIT REQUEST
+              │                                │
+              │                                ↓
+              │                         🛡️ MODERATION
+              │                                │
+              │                       ┌────────┴────────┐
+              │                       ↓                 ↓
+              │                    UNSAFE              SAFE
+              │                       │                 │
+              │                       ↓                 ↓
+              │                  ❌ CANCEL         90s CHECK
+              │                                         │
+              │                                  ┌──────┴──────┐
+              │                                  ↓             ↓
+              │                                NO            YES
+              │                                 │              │
+              │                                 ↓              ↓
+              │                              ❌ REJECT      QUEUE
+              │                                                │
+              │                                                ↓
+              │                                       REQUEST RECEIVED
+              │                                                │
+              │                                                ↓
+              │                                           LLAMA 3
+              │                                                │
+              │                                                ↓
+              │                                       CINEMATIC SCRIPT
+              │                                                │
+              │                                                ↓
+              │                                         FEMALE RJ TTS
+              │                                                │
+              │                                                ↓
+              │                                      MUSIC + SFX + MIX
+              │                                                │
+              │                                                ↓
+              │                                        🎙️ ON-AIR RJ
+              │                                                │
+              │                                                ↓
+              │                                        🎵 REQUESTED SONG
+              │                                                │
+              └────────────────────────────────────────────────┘
+18. Automatic radio + request queue
+
+The complete station logic:
+
+                    RADIO ENGINE
+                         │
+                         ↓
+                 CURRENT SONG?
+                         │
+                    ┌────┴────┐
+                    ↓         ↓
+                   YES        NO
+                    │         │
+                    ↓         ↓
+                 PLAY      SELECT SONG
+                    │         │
+                    └────┬────┘
+                         ↓
+                    SONG ENDS
+                         ↓
+                 REQUEST QUEUE?
+                         │
+                ┌────────┴────────┐
+                ↓                 ↓
+               YES                NO
+                │                 │
+                ↓                 ↓
+          PROCESS REQUEST     AUTO SELECT
+                │                 │
+                ↓                 ↓
+            🎙️ RJ              90s SONG
+                │                 │
+                ↓                 │
+          REQUESTED SONG          │
+                │                 │
+                └────────┬────────┘
+                         ↓
+                       PLAY
+                         ↓
+                    SONG ENDS
+                         ↓
+                      REPEAT
+19. Overall system architecture
+┌──────────────────────────────────────────────────────────┐
+│                    DELUX FRONTEND                        │
+│                                                          │
+│       📻 RADIO       💬 CHAT       🎵 REQUEST            │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ↓
+┌──────────────────────────────────────────────────────────┐
+│                    DELUX BACKEND                         │
+│                                                          │
+│  Auth / Sessions                                         │
+│  Chat                                                    │
+│  Requests                                                │
+│  Queue                                                   │
+│  Radio Engine                                            │
+│  Moderation                                              │
+│  AI Orchestrator                                         │
+└───────┬───────────────┬───────────────┬──────────────────┘
+        │               │               │
+        ↓               ↓               ↓
+   PostgreSQL         Redis          Ollama
+        │                               │
+        │                            Llama 3
+        │                               │
+        │                               ↓
+        │                         Script Generator
+        │
+        ↓
+   Song Catalog
+        │
+        ↓
+   YouTube IDs
+        │
+        ↓
+   YouTube Player
+
+
+
+
+              AI AUDIO PIPELINE
+                     │
+                     ↓
+                 TTS MODEL
+                     ↓
+               Female RJ Voice
+                     ↓
+              FFmpeg / Audio Mix
+                     ↓
+                 Radio Engine
+20. Suggested database
+
+You don't need a huge database.
+
+users
+id
+display_name
+session_id
+created_at
+last_seen
+songs
+id
+title
+artist
+album
+movie
+release_year
+language
+youtube_video_id
+thumbnail
+duration
+active
+created_at
+requests
+id
+song_id
+song_name
+requester_name
+dedicated_to
+story
+status
+moderation_status
+created_at
+processed_at
+
+Statuses:
+
+pending
+moderating
+rejected
+queued
+announcing
+playing
+completed
+chat_messages
+id
+user_id
+message
+moderation_status
+created_at
+radio_state
+current_song_id
+youtube_video_id
+started_at
+status
+rj_announcements
+id
+request_id
+script
+voice_audio_path
+duration
+status
+created_at
+21. Backend services
+
+I'd separate the backend logically:
+
+DELUX BACKEND
+│
+├── Radio Service
+│
+├── Request Service
+│
+├── Queue Service
+│
+├── Chat Service
+│
+├── Moderation Service
+│
+├── AI Story Service
+│
+├── TTS Service
+│
+├── Audio Mixing Service
+│
+└── Admin Service
+22. Radio service
+
+Responsible for:
+
+Current song
+Song transitions
+Automatic selection
+Request queue
+Radio state
+Player synchronization
+
+Example:
+
+RadioService
+    ↓
+getCurrentSong()
+    ↓
+getQueue()
+    ↓
+getNextAutoSong()
+    ↓
+playRequest()
+    ↓
+resumeAutoRadio()
+23. AI service
+AI SERVICE
+   │
+   ├── moderateRequest()
+   │
+   ├── classifyStory()
+   │
+   ├── generateRJScript()
+   │
+   └── generateVoiceDirection()
+
+Llama 3 handles the creative generation.
+
+24. TTS service
+TTS SERVICE
+    ↓
+receive script
+    ↓
+split into scenes
+    ↓
+generate voice
+    ↓
+normalize
+    ↓
+add pauses
+    ↓
+return audio
+25. Audio mixer
+
+The mixer creates the cinematic result:
+
+VOICE
+   +
+BACKGROUND MUSIC
+   +
+AMBIENCE
+   +
+SFX
+   ↓
+DUCK MUSIC
+   ↓
+NORMALIZE
+   ↓
+MASTER
+   ↓
+FINAL WAV/MP3
+
+For example, while the RJ talks:
+
+Voice       ███████████████████
+Music       ████░░░░░░████████
+Ambience    ██░░░░░░░░░░░░░██
+
+Music automatically gets quieter under speech.
+
+26. Admin panel
+
+Even though the public product is simple, you'll need a private admin interface.
+
+ADMIN
+ │
+ ├── 📻 Radio
+ │
+ ├── 🎵 Songs
+ │
+ ├── 🎵 Requests
+ │
+ ├── 💬 Chat
+ │
+ ├── 🎙️ RJ
+ │
+ ├── 🛡️ Moderation
+ │
+ └── 📊 Analytics
+Radio admin
+
+You should be able to:
+
+See current song
+See listeners
+See queue
+Pause station
+Remove a request
+Skip a problematic song from admin, even though listeners can't skip
+Disable a song
+27. Song catalog management
+
+Admin adds/approves:
+
+Song
+Artist
+Year
+Movie
+YouTube Video ID
+Language
+Category
+Active
+
+Only approved songs enter the automatic radio pool.
+
+This is especially important for your 90s-only requirement.
+
+28. Request admin
+
+Admin can see:
+
+REQUEST QUEUE
+
+
+#1 Rahul
+🎵 Song XYZ
+❤️ For Pooja
+📝 Story attached
+🟢 Moderated
+
+
+#2 Priya
+🎵 Song ABC
+🟢 Moderated
+
+And:
+
+[PLAY NEXT]
+[REMOVE]
+[VIEW STORY]
+[REGENERATE RJ]
+29. Listener experience
+
+The public UI should be extremely focused.
+
+Something like:
+
+┌─────────────────────────────────────────────┐
+│                                             │
+│                 DELUX 📻                    │
+│                                             │
+│              DELUX RADIO                    │
+│                                             │
+│       🎵 NOW PLAYING                        │
+│       Song Name                             │
+│       Artist                                │
+│                                             │
+│              ▶                             │
+│                                             │
+│       👥 183 LISTENING                     │
+│                                             │
+│     💬 CHAT       🎵 REQUEST                │
+│                                             │
+└─────────────────────────────────────────────┘
+
+No clutter.
+
+The radio is the hero.
+
+30. Final user journey
+
+The complete experience is:
+
+OPEN DELUX
+    ↓
+SEE / HEAR DELUX ATMOSPHERE
+    ↓
+📻 PLAY
+    ↓
+90s SONG FROM YOUTUBE
+    ↓
+LISTEN
+    │
+    ├──────────────→ 💬 CHAT
+    │                    ↓
+    │                TALK WITH
+    │                LISTENERS
+    │
+    └──────────────→ 🎵 REQUEST
+                         ↓
+                    SONG NAME
+                         ↓
+                    YOUR NAME
+                         ↓
+                 OPTIONAL STORY
+                         ↓
+                    MODERATION
+                         ↓
+                    90s CHECK
+                         ↓
+                     QUEUE
+                         ↓
+                    LLAMA 3
+                         ↓
+                CINEMATIC SCRIPT
+                         ↓
+                  FEMALE RJ TTS
+                         ↓
+                 MUSIC + SFX
+                         ↓
+                 🎙️ RJ ON AIR
+                         ↓
+                 🎵 SONG PLAYS
+                         ↓
+                  RADIO CONTINUES
+                         ↓
+                 QUEUE EMPTY?
+                    /       \
+                  YES        NO
+                   ↓          ↓
+             AUTO 90s SONG  NEXT REQUEST
+                   │
+                   └──────────┐
+                              ↓
+                           REPEAT
+31. The final technology stack
+
+For a local-first build, I'd start with:
+
+FRONTEND
+Next.js / React
+        │
+        ↓
+BACKEND
+Node.js / TypeScript
+        │
+        ├── PostgreSQL
+        ├── Redis
+        └── WebSockets
+        │
+        ↓
+AI
+Ollama
+  └── Llama 3
+        │
+        ↓
+STORY ENGINE
+        │
+        ↓
+LOCAL EXPRESSIVE TTS
+        │
+        ↓
+FFmpeg
+        │
+        ↓
+AUDIO ENGINE
+        │
+        ↓
+RADIO / YOUTUBE PLAYER
+The most important design principle
+
+Don't build “a website with a radio feature.”
+
+Build:
+
+“A radio station that happens to have a website.”
+
+Everything should revolve around that feeling:
+
+📻 Tune in → 🎵 90s music → 💬 people chatting → ❤️ personal stories → 🎙️ female RJ → 🎬 cinematic moment → 🎵 song → 📻 radio continues.

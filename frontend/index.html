@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Delux Radio 📻 — 90s Bollywood Radio Station</title>
+  <meta name="description"
+    content="Delux Radio — A nostalgic 90s Bollywood radio experience. Listen non-stop, chat with listeners, and request songs with a live female RJ.">
+  <meta name="theme-color" content="#120806" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📻</text></svg>" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     YOUTUBE BRIDGE
+     Must remain in the render tree (not display:none) for mobile browsers.
+     Positioned off-screen at 1×1px so iOS/Android don't block playback.
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="yt-bridge"
+    style="position:fixed;top:15%;left:15%;width:250px;height:250px;opacity:0.02;pointer-events:none;z-index:99999;">
+    <div id="yt-player"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     USERNAME MODAL  (first visit)
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="username-modal-overlay" role="dialog" aria-modal="true" aria-label="Enter your name">
+    <div class="username-card">
+      <div style="font-size:48px;margin-bottom:14px">📻</div>
+      <h2>Delux Radio</h2>
+      <p>Your 90s Bollywood station.<br>What should we call you?</p>
+      <div class="form-group" style="margin-bottom:16px">
+        <input id="username-input" class="form-input" type="text" placeholder="Your name..." maxlength="50"
+          autocomplete="off" style="text-align:center;font-size:15px" />
+      </div>
+      <button id="username-submit" class="btn-amber" style="max-width:180px;margin:0 auto">
+        Tune In 📻
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     HERO — full screen
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="hero" aria-label="Delux Radio player">
+
+    <!-- Background image + overlay -->
+    <div class="hero-bg">
+      <picture style="display: block; width: 100%; height: 100%;">
+        <source media="(max-width: 768px)" srcset="/img/backgroung_mobile.png">
+        <img
+          src="/img/backgroung.png"
+          alt="Delux Radio — 90s Bollywood radio station background"
+          style="width: 100%; height: 100%; object-fit: cover; display: block;"
+        />
+      </picture>
+      <div class="hero-bg-overlay"></div>
+    </div>
+
+    <!-- ── Header pills ─────────────────────────────────────────────────── -->
+    <header class="hero-header" id="hero-header">
+
+      <!-- Online count -->
+      <div class="header-pill online-pill" id="online-pill" aria-live="polite">
+        <span class="online-dot" aria-hidden="true"></span>
+        <span class="online-count" id="listener-count">0</span>
+        <span class="online-label">online</span>
+      </div>
+
+      <!-- Center: Chat + Request -->
+      <nav aria-label="Station controls" style="display:flex;align-items:center;gap:8px">
+        <button class="header-pill amber-pill" id="btn-open-chat" aria-label="Open live chat">
+          💬 Chat
+        </button>
+        <button class="header-pill amber-pill" id="btn-open-request" aria-label="Request a song">
+          🎵 Request
+        </button>
+      </nav>
+
+      <!-- Support -->
+      <button class="header-pill support-pill" id="btn-support" aria-label="Support Delux Radio">
+        <span class="heart-pulse" aria-hidden="true">❤️</span>
+        Support
+      </button>
+
+    </header>
+
+    <!-- ── Hero center content ───────────────────────────────────────────── -->
+    <main class="hero-main" id="hero-main">
+
+      <!-- Station name (big, Rozha One — like डीलक्स सैलून on reference) -->
+      <div class="station-title-wrap" id="station-title-wrap">
+        <h1 class="station-title font-display">
+          DELUX<br><span class="accent">RADIO</span>
+        </h1>
+      </div>
+
+      <!-- Center stack: mode badge + queue + player -->
+      <div class="hero-center-stack" id="hero-center-stack">
+
+        <!-- Mode badge -->
+        <div id="mode-pill" class="mode-pill auto" aria-live="polite">
+          <span class="mode-dot"></span>
+          <span id="mode-text">AUTO RADIO</span>
+        </div>
+
+        <!-- Queue strip -->
+        <div class="queue-strip hidden" id="queue-strip" aria-live="polite"></div>
+
+        <!-- ─── MUSIC PLAYER ─────────────────────────────────────────────── -->
+        <section class="music-player" aria-label="Delux Radio music player">
+
+          <!-- Spinning vinyl disc (thumbnail loads dynamically) -->
+          <div class="music-cover-frame" id="cover-frame" aria-hidden="true">
+            <div class="music-cover" id="cover-disc"
+              style="background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22/>')">
+            </div>
+            <span class="music-cover-hole"></span>
+          </div>
+
+          <!-- Track info -->
+          <div class="track-block">
+            <div class="track-top">
+              <div class="track-name" id="track-name">Press Play to Tune In</div>
+            </div>
+            <div class="track-artist" id="track-artist">Delux Radio · 90s Bollywood</div>
+
+            <!-- Progress row (EQ bars + time display — no seeking per spec) -->
+            <div class="progress-row" style="margin-top:6px">
+              <!-- Equalizer bars (visual only) -->
+              <div class="eq-bars" id="eq-bars" aria-hidden="true">
+                <div class="eq-bar" style="height:40%;--d:0.6s"></div>
+                <div class="eq-bar" style="height:90%;--d:0.9s"></div>
+                <div class="eq-bar" style="height:55%;--d:0.7s"></div>
+                <div class="eq-bar" style="height:100%;--d:0.5s"></div>
+                <div class="eq-bar" style="height:65%;--d:0.8s"></div>
+              </div>
+              <!-- Station tag -->
+              <span class="track-station" style="margin-left:6px">Nonstop 90s</span>
+              <!-- Volume -->
+              <div class="volume-wrap" style="margin-left:auto">
+                <button class="vol-icon" id="btn-mute" aria-label="Mute/Unmute">🔊</button>
+                <input type="range" class="vol-slider" id="volume-slider" min="0" max="100" value="80"
+                  aria-label="Volume" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions: Play/Pause ONLY (per spec — no skip/next/prev for listeners) -->
+          <div class="player-actions">
+            <button class="icon-btn play-btn" id="btn-play" aria-label="Play / Pause">
+              ▶
+            </button>
+          </div>
+
+        </section>
+        <!-- /music-player -->
+
+        <!-- Footer contact -->
+        <footer class="hero-footer">
+          Delux Radio · 90s Bollywood Nonstop
+        </footer>
+
+      </div><!-- /hero-center-stack -->
+
+      <!-- Scroll cue (desktop only) -->
+      <a href="#about" class="scroll-cue" id="scroll-cue" aria-label="Scroll to learn more"
+        style="position:absolute;bottom:12px">
+        <span>Scroll</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          aria-hidden="true">
+          <path d="M12 5v14M5 12l7 7 7-7" />
+        </svg>
+      </a>
+
+    </main>
+
+  </section>
+  <!-- /hero -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     CHAT PANEL  (slide in from right)
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <aside class="chat-panel" id="chat-panel" role="complementary" aria-label="Live Chat">
+
+    <div class="chat-panel-header">
+      <div class="chat-panel-title">💬 Live Chat</div>
+      <button class="icon-btn" id="btn-close-chat" aria-label="Close chat"
+        style="background:rgba(255,255,255,0.08);border-color:transparent">×</button>
+    </div>
+
+    <div class="chat-username-row">
+      <span>You:</span>
+      <span class="chat-username-name" id="username-display">—</span>
+      <button class="btn-rename" id="btn-rename">rename</button>
+    </div>
+
+    <div class="chat-messages" id="chat-messages" aria-live="polite">
+      <div style="text-align:center;color:rgba(255,255,255,0.3);font-size:12px;margin-top:40px">
+        Connecting to chat...
+      </div>
+    </div>
+
+    <div class="chat-input-area" id="chat-input-area">
+      <!-- emoji bar injected by JS -->
+      <div class="chat-input-row">
+        <input type="text" class="chat-input" id="chat-input" placeholder="Say something..." maxlength="300"
+          autocomplete="off" aria-label="Chat message" />
+        <button class="btn-send" id="btn-send-chat" aria-label="Send message">➤</button>
+        <!-- char count injected by JS -->
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     SONG REQUEST MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="app-modal" id="request-modal" role="dialog" aria-modal="true" aria-label="Request a Song">
+    <div class="app-modal-card">
+      <button class="modal-close-btn" onclick="RequestModule.close()" aria-label="Close">×</button>
+
+      <div class="modal-icon">🎵</div>
+      <h2 class="modal-title">Request a Song</h2>
+      <p class="modal-subtitle">Dedicate a 90s song to someone special</p>
+
+      <form id="request-form" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="req-name">Your Name <span class="req">*</span></label>
+          <input type="text" class="form-input" id="req-name" placeholder="e.g. Rahul" maxlength="100" required autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="req-dedicated">Dedicating To <span style="color:rgba(255,255,255,0.3)">(optional)</span></label>
+          <input type="text" class="form-input" id="req-dedicated" placeholder="e.g. Pooja ❤️" maxlength="100" autocomplete="off" />
+        </div>
+
+        <div class="form-group" style="position: relative;">
+          <label class="form-label" for="req-song">YouTube Link / Song Name <span class="req">*</span></label>
+          <input type="text" class="form-input" id="req-song" placeholder="e.g. https://youtu.be/... OR Kuch Kuch Hota Hai" maxlength="200" required autocomplete="off" />
+          <div id="req-song-suggestions" class="autocomplete-dropdown" style="display: none;"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="req-story">❤️ Your Story <span style="color:rgba(255,255,255,0.3)">(optional)</span></label>
+          <textarea class="form-textarea" id="req-story" placeholder="Share a memory... the RJ will make it magical." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-feedback" id="req-feedback"></div>
+
+        <button type="submit" class="btn-amber" id="req-submit">
+          🎙️ Send Request
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     SUPPORT MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="app-modal" id="support-modal" role="dialog" aria-modal="true" aria-label="Support Delux Radio">
+    <div class="app-modal-card">
+      <button class="modal-close-btn" id="btn-close-support" aria-label="Close">×</button>
+      <div class="modal-icon">❤️</div>
+      <h2 class="modal-title">Keep Delux Radio Free</h2>
+      <p style="color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;margin-bottom:20px">
+        Delux Radio runs 24/7 for listeners like you. If you enjoy the station, a small support helps keep it alive and
+        free forever.
+      </p>
+      <div
+        style="padding:24px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;color:rgba(255,255,255,0.5);font-size:13px">
+        📻 Thank you for tuning in!
+      </div>
+      <button id="btn-close-support-2" class="btn-amber" style="max-width:160px;margin:16px auto 0">Close</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     RJ ANNOUNCEMENT BANNER
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="rj-banner" id="rj-banner" aria-live="polite"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     TOAST NOTIFICATIONS
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <script src="/js/player.js"></script>
+  <script src="/js/chat.js"></script>
+  <script src="/js/request.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+
+</html>

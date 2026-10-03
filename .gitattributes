@@ -1,0 +1,8 @@
+# Auto detect text files and perform LF normalization on checkout
+* text=auto eol=lf
+
+# Explicitly declare files that must have CRLF
+*.bat text eol=crlf
+
+# Shell scripts must always have LF
+*.sh text eol=lf

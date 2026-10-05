@@ -1,6 +1,22 @@
 """
 Delux Radio — FastAPI Main Application
 """
+import sys
+import io
+
+# Ensure UTF-8 output on Windows console to prevent UnicodeEncodeError with emojis/special characters
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 import json
 import uuid
 import asyncio
@@ -210,9 +226,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 if video_id and duration > 10:
                     radio_engine.update_song_duration(video_id, duration)
 
-            # ── Ignored: clients must NOT trigger song changes ────────────────────
+            # ── Client notifies song ended ──────────────────────────────────────────
             elif msg_type == "song_ended":
-                pass  # Server auto-loop handles this — ignore client requests
+                video_id = str(data.get("video_id", ""))
+                await radio_engine.client_song_ended(video_id)
 
     except WebSocketDisconnect:
         manager.disconnect(client_id)

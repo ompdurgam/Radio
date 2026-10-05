@@ -1,7 +1,7 @@
 /**
  * YouTube IFrame Player & Direct Audio Stream Integration — Delux Radio
  * Manages YouTube player state (for ambient visuals) and HTML5 Audio (for sound).
- * Features reliable multi-listener sync, metadata-aware seeking, and auto-fallback.
+ * Features reliable multi-listener sync, metadata-aware seeking, and strict single-audio playback.
  */
 
 const Player = (() => {
@@ -48,10 +48,15 @@ const Player = (() => {
 
   audioPlayer.addEventListener('error', (e) => {
     console.warn('[Player] Audio Stream Error:', e);
-    // Fallback: If backend stream extraction fails, unmute YouTube visual player
+    // Fallback: If backend stream extraction fails, deactivate audioPlayer completely and unmute YouTube player
     if (ytPlayer && isReady) {
       console.log('[Player] Falling back to YouTube native audio');
       fallbackYtAudio = true;
+      try {
+        audioPlayer.pause();
+        audioPlayer.removeAttribute('src');
+        audioPlayer.load();
+      } catch (err) {}
       try {
         if (!currentMuted) ytPlayer.unMute();
         ytPlayer.setVolume(currentVolume);
@@ -99,8 +104,11 @@ const Player = (() => {
       events: {
         onReady: (event) => {
           isReady = true;
-          event.target.mute(); // Enforce mute
-          console.log('[Player] YouTube Visuals ready');
+          try {
+            event.target.mute(); // Enforce mute
+            event.target.setVolume(0);
+          } catch (e) {}
+          console.log('[Player] YouTube Visuals ready (muted)');
           if (pendingVideoId) {
             _doLoad(pendingVideoId, pendingPlay, pendingStart);
             pendingVideoId = null;
@@ -119,7 +127,7 @@ const Player = (() => {
 
     const performSeek = () => {
       try {
-        if (audioPlayer.duration && !isNaN(audioPlayer.duration)) {
+        if (audioPlayer.duration && !isNaN(audioPlayer.duration) && isFinite(audioPlayer.duration)) {
           const clamped = Math.min(seconds, Math.max(0, audioPlayer.duration - 1));
           audioPlayer.currentTime = clamped;
         } else {
@@ -134,8 +142,13 @@ const Player = (() => {
     if (audioPlayer.readyState >= 1) {
       performSeek();
     } else {
-      audioPlayer.addEventListener('loadedmetadata', performSeek, { once: true });
-      audioPlayer.addEventListener('canplay', performSeek, { once: true });
+      const onCanSeek = () => {
+        audioPlayer.removeEventListener('loadedmetadata', onCanSeek);
+        audioPlayer.removeEventListener('canplay', onCanSeek);
+        performSeek();
+      };
+      audioPlayer.addEventListener('loadedmetadata', onCanSeek, { once: true });
+      audioPlayer.addEventListener('canplay', onCanSeek, { once: true });
     }
   }
 
@@ -146,13 +159,16 @@ const Player = (() => {
 
     // If it's already the same video, don't destroy and reload the audio stream!
     if (isSameVideo && audioPlayer.src && audioPlayer.src.includes(videoId)) {
-      if (Math.abs(audioPlayer.currentTime - targetOffset) > 1.5) {
+      if (Math.abs(audioPlayer.currentTime - targetOffset) > 2.0) {
         _applyAudioSeek(targetOffset);
       }
       if (autoplay && audioPlayer.paused) {
         audioPlayer.play().catch(() => {});
       }
       if (ytPlayer && isReady) {
+        if (!fallbackYtAudio) {
+          try { ytPlayer.mute(); ytPlayer.setVolume(0); } catch(e){}
+        }
         ytPlayer.seekTo(targetOffset, true);
         if (autoplay) ytPlayer.playVideo();
       }
@@ -162,24 +178,65 @@ const Player = (() => {
     fallbackYtAudio = false;
     targetSeekOffset = targetOffset;
 
-    // 1. Update Audio
+    // 1. Strictly enforce MUTE on ytPlayer so it NEVER plays background sound
+    if (ytPlayer && isReady) {
+      try {
+        ytPlayer.mute();
+        ytPlayer.setVolume(0);
+      } catch (e) {}
+    }
+
+    // 2. Pause and reset current audio stream cleanly
+    try {
+      audioPlayer.pause();
+    } catch (e) {}
+
+    // 3. Update Audio
     audioPlayer.src = `/api/radio/stream/${videoId}`;
+    audioPlayer.volume = Math.max(0, Math.min(100, currentVolume)) / 100;
+    audioPlayer.muted = currentMuted;
     _applyAudioSeek(targetOffset);
 
     if (autoplay) {
-      audioPlayer.play().catch(e => {
-        console.warn("[Player] Audio blocked by browser:", e);
-      });
+      const p = audioPlayer.play();
+      if (p !== undefined) {
+        p.catch(e => {
+          console.warn("[Player] Audio autoplay waiting/blocked:", e.name);
+          // If Chrome paused or aborted due to stream buffering, play immediately on canplay
+          const retryPlay = () => {
+            audioPlayer.removeEventListener('canplay', retryPlay);
+            audioPlayer.removeEventListener('loadeddata', retryPlay);
+            if (autoplay && audioPlayer.paused) {
+              audioPlayer.play().catch(()=>{});
+            }
+          };
+          audioPlayer.addEventListener('canplay', retryPlay, { once: true });
+          audioPlayer.addEventListener('loadeddata', retryPlay, { once: true });
+        });
+      }
     }
 
-    // 2. Update Visuals
+    // 4. Update Visuals (strictly muted)
     if (ytPlayer && isReady) {
       const opts = targetOffset > 0 ? { videoId, startSeconds: Math.floor(targetOffset) } : videoId;
+      try {
+        ytPlayer.mute();
+        ytPlayer.setVolume(0);
+      } catch (e) {}
       if (autoplay) {
         ytPlayer.loadVideoById(opts);
       } else {
         ytPlayer.cueVideoById(opts);
       }
+      // Re-enforce mute right after load
+      setTimeout(() => {
+        if (!fallbackYtAudio && ytPlayer && isReady) {
+          try {
+            ytPlayer.mute();
+            ytPlayer.setVolume(0);
+          } catch (e) {}
+        }
+      }, 100);
     }
   }
 
@@ -194,6 +251,8 @@ const Player = (() => {
       fallbackYtAudio = false;
       targetSeekOffset = Math.max(0, startSeconds || 0);
       audioPlayer.src = `/api/radio/stream/${videoId}`;
+      audioPlayer.volume = Math.max(0, Math.min(100, currentVolume)) / 100;
+      audioPlayer.muted = currentMuted;
       _applyAudioSeek(targetSeekOffset);
       if (autoplay) audioPlayer.play().catch(()=>{});
       
@@ -229,23 +288,34 @@ const Player = (() => {
 
   function play() {
     if (fallbackYtAudio && isReady && ytPlayer) {
+      if (!currentMuted) ytPlayer.unMute();
+      ytPlayer.setVolume(currentVolume);
       ytPlayer.playVideo();
     } else {
+      if (isReady && ytPlayer) {
+        try { ytPlayer.mute(); ytPlayer.setVolume(0); } catch(e){}
+        ytPlayer.playVideo();
+      }
       audioPlayer.play().catch(()=>{});
-      if (isReady && ytPlayer) ytPlayer.playVideo();
     }
   }
 
   function pause() {
-    audioPlayer.pause();
-    if (isReady && ytPlayer) ytPlayer.pauseVideo();
+    try { audioPlayer.pause(); } catch(e){}
+    if (isReady && ytPlayer) {
+      try { ytPlayer.pauseVideo(); } catch(e){}
+    }
   }
 
   function setVolume(vol) {
-    currentVolume = vol;
-    audioPlayer.volume = Math.max(0, Math.min(100, vol)) / 100;
-    if (isReady && ytPlayer && fallbackYtAudio) {
-      try { ytPlayer.setVolume(vol); } catch (e) {}
+    currentVolume = Math.max(0, Math.min(100, vol));
+    audioPlayer.volume = currentVolume / 100;
+    if (isReady && ytPlayer) {
+      if (fallbackYtAudio) {
+        try { ytPlayer.setVolume(currentVolume); } catch (e) {}
+      } else {
+        try { ytPlayer.mute(); ytPlayer.setVolume(0); } catch (e) {}
+      }
     }
   }
 
@@ -255,6 +325,8 @@ const Player = (() => {
     if (isReady && ytPlayer) {
       if (fallbackYtAudio) {
         if (muted) ytPlayer.mute(); else ytPlayer.unMute();
+      } else {
+        try { ytPlayer.mute(); ytPlayer.setVolume(0); } catch (e) {}
       }
     }
   }

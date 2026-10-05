@@ -121,6 +121,18 @@ class RadioEngine:
             self.upcoming_queue.append(song)
             used_ids.append(song["youtube_video_id"])
 
+        # Pre-warm next song's audio stream in background
+        if self.upcoming_queue:
+            next_vid = self.upcoming_queue[0].get("youtube_video_id")
+            if next_vid:
+                try:
+                    from routers.radio import prefetch_stream_url
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(prefetch_stream_url(next_vid))
+                except Exception:
+                    pass
+
     # ── Startup ────────────────────────────────────────────────────────────────
     def boot_with_song(self):
         """
@@ -157,6 +169,18 @@ class RadioEngine:
             if self.upcoming_queue:
                 titles = [s["title"] for s in self.upcoming_queue]
                 print(f"[QUEUE] Upcoming: {' -> '.join(titles)}")
+
+            # Pre-warm current song audio stream
+            if self.current_song:
+                vid = self.current_song.get("youtube_video_id")
+                if vid:
+                    try:
+                        from routers.radio import prefetch_stream_url
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            loop.create_task(prefetch_stream_url(vid))
+                    except Exception:
+                        pass
         finally:
             db.close()
 
@@ -190,22 +214,60 @@ class RadioEngine:
         """
         Runs forever. Every second, checks if current song is done.
         The server — not any client — decides when to advance.
+        Protected by try-except to guarantee it never crashes.
         """
         print("[LOOP] Server auto-loop started (1-second resolution)")
         while True:
-            await asyncio.sleep(1)
-            if not self.is_playing or not self.song_started_at:
-                continue
-            now = time.time()
-            if now < self.song_started_at:
-                # RJ sound is currently on air; song has not started yet
-                continue
-            elapsed = now - self.song_started_at
-            if elapsed >= self.song_duration + 1:
-                print(f"[SKIP] [{elapsed:.0f}s/{self.song_duration:.0f}s] Advancing...")
-                next_play = await self._advance()
-                await self.broadcast_state()
-                await manager.broadcast({"type": "play_next", "data": next_play})
+            try:
+                await asyncio.sleep(1)
+                if not self.is_playing or not self.song_started_at:
+                    continue
+                now = time.time()
+                if now < self.song_started_at:
+                    # RJ sound is currently on air; song has not started yet
+                    continue
+                if self.current_rj_url:
+                    # RJ has finished; song officially starts on air
+                    self.current_rj_url = None
+                    await self.broadcast_state()
+                elapsed = now - self.song_started_at
+                if elapsed >= self.song_duration + 0.5:
+                    print(f"[SKIP] [{elapsed:.0f}s/{self.song_duration:.0f}s] Auto-advancing to next song...")
+                    async with self._processing_lock:
+                        # Double-check inside lock
+                        now = time.time()
+                        if now >= self.song_started_at and (now - self.song_started_at) >= self.song_duration:
+                            next_play = await self._advance()
+                            await self.broadcast_state()
+                            await manager.broadcast({"type": "play_next", "data": next_play})
+            except Exception as e:
+                print(f"[LOOP ERROR] {e}")
+                await asyncio.sleep(2)
+
+    async def client_song_ended(self, video_id: Optional[str] = None):
+        """
+        Called when a client reports song ended locally.
+        If the song has reached its actual finish, advance without delay.
+        """
+        if not self.is_playing or not self.current_song:
+            return None
+        if video_id and self.current_song.get("youtube_video_id") != video_id:
+            return None
+        now = time.time()
+        if now < self.song_started_at:
+            return None  # RJ announcement still playing
+        elapsed = now - self.song_started_at
+        # Advance if played for at least 25s and either >= 50% of duration or duration unconfirmed
+        if elapsed >= 25 and (elapsed >= self.song_duration * 0.5 or not self._duration_confirmed):
+            print(f"[CLIENT ENDED] Advancing after {elapsed:.1f}s (configured duration: {self.song_duration:.1f}s)")
+            async with self._processing_lock:
+                if self.is_playing and self.current_song and (not video_id or self.current_song.get("youtube_video_id") == video_id):
+                    self.update_song_duration(self.current_song["youtube_video_id"], elapsed)
+                    next_play = await self._advance()
+                    await self.broadcast_state()
+                    await manager.broadcast({"type": "play_next", "data": next_play})
+                    return next_play
+        return None
 
     # ── Advance to next song ───────────────────────────────────────────────────
     async def _advance(self) -> Dict:
@@ -308,10 +370,11 @@ class RadioEngine:
 
     async def admin_skip(self) -> Dict:
         """Admin: immediately skip to next song."""
-        next_play = await self._advance()
-        await self.broadcast_state()
-        await manager.broadcast({"type": "play_next", "data": next_play})
-        return next_play
+        async with self._processing_lock:
+            next_play = await self._advance()
+            await self.broadcast_state()
+            await manager.broadcast({"type": "play_next", "data": next_play})
+            return next_play
 
     def admin_toggle_rj(self, enabled: Optional[bool] = None) -> bool:
         """Admin: toggle or set RJ announcements on/off."""

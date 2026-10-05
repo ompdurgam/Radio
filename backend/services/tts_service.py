@@ -31,7 +31,7 @@ async def generate_voice(text: str, output_path: str) -> bool:
     # 4. Fallback: pyttsx3
     if await _try_pyttsx3(text, output_path):
         return True
-    print(f"❌ TTS failed for output: {output_path}")
+    print(f"[TTS ERROR] TTS failed for output: {output_path}")
     return False
 
 
@@ -48,14 +48,14 @@ async def _try_edge_tts(text: str, output_path: str) -> bool:
         )
         await communicate.save(output_path)
         if os.path.exists(output_path) and os.path.getsize(output_path) > 500:
-            print(f"✅ Edge TTS (Priya) → {output_path}")
+            print(f"[TTS OK] Edge TTS (Priya) -> {output_path}")
             return True
         return False
     except ImportError:
-        print("ℹ️ edge-tts not installed. Trying next fallback...")
+        print("[TTS INFO] edge-tts not installed. Trying next fallback...")
         return False
     except Exception as e:
-        print(f"⚠️ Edge TTS error: {e}")
+        print(f"[TTS WARN] Edge TTS error: {e}")
         return False
 
 
@@ -72,13 +72,13 @@ async def _try_gtts(text: str, output_path: str) -> bool:
 
         result = await loop.run_in_executor(None, _run)
         if result and os.path.exists(output_path) and os.path.getsize(output_path) > 500:
-            print(f"✅ gTTS → {output_path}")
+            print(f"[TTS OK] gTTS -> {output_path}")
             return True
         return False
     except ImportError:
         return False
     except Exception as e:
-        print(f"⚠️ gTTS error: {e}")
+        print(f"[TTS WARN] gTTS error: {e}")
         return False
 
 
@@ -111,14 +111,14 @@ async def _try_kokoro(text: str, output_path: str) -> bool:
 
         result = await loop.run_in_executor(None, _run)
         if result:
-            print(f"✅ Kokoro TTS → {output_path}")
+            print(f"[TTS OK] Kokoro TTS -> {output_path}")
         return result
 
     except ImportError:
-        print("ℹ️  Kokoro not installed. Trying pyttsx3...")
+        print("[TTS INFO] Kokoro not installed. Trying pyttsx3...")
         return False
     except Exception as e:
-        print(f"⚠️  Kokoro error: {e}")
+        print(f"[TTS WARN] Kokoro error: {e}")
         return False
 
 
@@ -160,14 +160,14 @@ async def _try_pyttsx3(text: str, output_path: str) -> bool:
 
         result = await loop.run_in_executor(None, _run)
         if result:
-            print(f"✅ pyttsx3 TTS → {output_path}")
+            print(f"[TTS OK] pyttsx3 TTS -> {output_path}")
         return result
 
     except ImportError:
-        print("⚠️  pyttsx3 not installed. TTS unavailable.")
+        print("[TTS WARN] pyttsx3 not installed. TTS unavailable.")
         return False
     except Exception as e:
-        print(f"⚠️  pyttsx3 error: {e}")
+        print(f"[TTS WARN] pyttsx3 error: {e}")
         return False
 
 

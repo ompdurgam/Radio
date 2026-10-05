@@ -33,7 +33,7 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
         from pydub import AudioSegment, effects
 
         if not os.path.exists(voice_path):
-            print(f"⚠️  Voice file not found: {voice_path}")
+            print(f"[MIX WARN] Voice file not found: {voice_path}")
             return False
 
         voice = AudioSegment.from_file(voice_path)
@@ -72,11 +72,11 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
 
         final = effects.normalize(final)
         final.export(output_path, format="mp3", bitrate="128k")
-        print(f"✅ Audio mixed → {output_path}")
+        print(f"[MIX OK] Audio mixed -> {output_path}")
         return True
 
     except ImportError:
-        print("⚠️  pydub not installed. Copying raw voice file.")
+        print("[MIX WARN] pydub not installed. Copying raw voice file.")
         try:
             import shutil
             shutil.copy2(voice_path, output_path)
@@ -84,7 +84,7 @@ def _mix_sync(voice_path: str, output_path: str, bg_music_path: Optional[str]) -
         except Exception:
             return False
     except Exception as e:
-        print(f"❌ Audio mix error: {e}")
+        print(f"[MIX ERROR] Audio mix error: {e}")
         # Last resort: just copy the voice
         try:
             import shutil

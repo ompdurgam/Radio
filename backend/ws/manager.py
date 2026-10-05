@@ -18,13 +18,13 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.usernames[client_id] = username
-        print(f"🔌 Connected: {username} ({client_id}) | Total: {len(self.active_connections)}")
+        print(f"[WS] Connected: {username} ({client_id}) | Total: {len(self.active_connections)}")
 
     def disconnect(self, client_id: str):
         name = self.usernames.get(client_id, client_id)
         self.active_connections.pop(client_id, None)
         self.usernames.pop(client_id, None)
-        print(f"🔌 Disconnected: {name} | Total: {len(self.active_connections)}")
+        print(f"[WS] Disconnected: {name} | Total: {len(self.active_connections)}")
 
     @property
     def listener_count(self) -> int:

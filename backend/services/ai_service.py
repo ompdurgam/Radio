@@ -85,7 +85,7 @@ Tone: warm, {emotion}, nostalgic, like talking to a dear friend on radio.
                 if script and len(script) > 30:
                     return script
         except Exception as e:
-            print(f"⚠️ Ollama error: {e}. Using template fallback.")
+            print(f"[AI WARN] Ollama error: {e}. Using template fallback.")
 
     # ─── Fallback template scripts ────────────────────────────────────────────
     return _generate_template_script(song_title, artist, requester_name, dedicated_to, story, emotion)

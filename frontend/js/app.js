@@ -25,6 +25,7 @@ const App = (() => {
     isMuted:       false,
     volume:        80,
     currentSong:   null,   // current song metadata (for display even before playing)
+    currentLoadedVideoId: null, // prevent duplicate loads
     radioMode:     'auto',
     listeners:     0,
     rjAudio:       null,
@@ -202,9 +203,13 @@ const App = (() => {
       _updateSongDisplay(song);
 
       // If already playing and song changed on server, transition smoothly
-      // BUT do NOT play if RJ sound is playing or scheduled
-      if (state.isPlaying && songChanged && !state.rjPlaying && (_radioNow() >= state.songStartedAt)) {
+      // BUT do NOT reload if already loaded or if RJ sound is playing or scheduled
+      if (state.isPlaying && songChanged && !state.rjPlaying && state.currentLoadedVideoId !== song.youtube_video_id && (_radioNow() >= state.songStartedAt)) {
         console.log(`[Sync] Server song changed → "${song.title}"`);
+        _loadYTSong(song, _getSyncOffset());
+      } else if (state.isPlaying && !Player.isPlaying() && !state.rjPlaying && (_radioNow() >= state.songStartedAt)) {
+        // Recovery watchdog: If radio was playing but stalled on track transition, kickstart playback
+        console.log(`[Sync Watchdog] Kickstarting playback for "${song.title}"`);
         _loadYTSong(song, _getSyncOffset());
       }
     }
@@ -225,12 +230,17 @@ const App = (() => {
   // ── Song transitions ───────────────────────────────────────────────────────
   function _onYTSongEnded() {
     if (!state.isPlaying) return;
-    // Tell server the song ended → server picks next → broadcasts play_next to ALL clients
+    const vid = state.currentSong?.youtube_video_id || state.currentLoadedVideoId;
+    console.log(`[Sync] Notifying server of song ended (${vid})`);
     if (state.ws?.readyState === WebSocket.OPEN) {
-      state.ws.send(JSON.stringify({ type: 'song_ended' }));
+      state.ws.send(JSON.stringify({ type: 'song_ended', video_id: vid }));
     } else {
       // Fallback: REST call
-      fetch('/api/radio/song-ended', { method: 'POST' })
+      fetch('/api/radio/song-ended', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: vid })
+      })
         .then(r => r.json())
         .then(d => { if (d?.next) _handlePlayNext(d.next); })
         .catch(() => {});
@@ -296,6 +306,7 @@ const App = (() => {
   function _loadYTSong(song, startSeconds = 0) {
     if (!song?.youtube_video_id) return;
 
+    state.currentLoadedVideoId = song.youtube_video_id;
     state.currentSong = song;
     _updateSongDisplay(song);
     _updatePlayBtn(true);
@@ -468,18 +479,33 @@ const App = (() => {
     });
 
     Player.onEnded(() => {
-      // Song ended on this client — just update UI, wait for server's play_next.
-      // DO NOT call song-ended or pick next song — the server controls this.
-      console.log('[Client] Song ended locally — waiting for server play_next');
+      console.log('[Client] Song ended locally — notifying server & triggering next');
       $('cover-disc')?.classList.remove('spinning');
-      // Keep isPlaying=true so when play_next arrives we auto-play
+      if (!state.isPlaying) return;
+
+      // 1. Notify server so it advances immediately for all listeners
+      _onYTSongEnded();
+
+      // 2. Safety watchdog: if server hasn't advanced within 3 seconds, poll state
+      setTimeout(() => {
+        if (state.isPlaying && !Player.isPlaying() && !state.rjPlaying) {
+          console.log('[Sync Watchdog] Checking server state after local song end...');
+          _refreshSyncBackground();
+        }
+      }, 3000);
     });
 
     Player.onError((code) => {
-      // YouTube error (e.g. video unavailable in this country).
-      // Just log it — the server will advance after song_duration anyway.
-      console.warn('[Player] YouTube error code:', code);
+      console.warn('[Player] YouTube/Audio error code:', code);
       $('cover-disc')?.classList.remove('spinning');
+      if (state.isPlaying && !state.rjPlaying) {
+        setTimeout(() => {
+          if (state.isPlaying && !Player.isPlaying() && !state.rjPlaying) {
+            console.log('[Sync Watchdog] Retrying advance after playback error...');
+            _onYTSongEnded();
+          }
+        }, 2500);
+      }
     });
 
     // ── Continuous Synchronization Monitor (every 8s) ────────────────────────
@@ -601,7 +627,7 @@ const App = (() => {
             console.log(`[Sync] Background correction: local=${currentPos.toFixed(1)}s, server=${correctOffset.toFixed(1)}s`);
             Player.seekTo(correctOffset);
           }
-        } else if (s.current_song && !state.rjPlaying) {
+        } else if (s.current_song && !state.rjPlaying && state.isPlaying) {
           // Server has moved on to a different song
           _loadYTSong(s.current_song, _getSyncOffset());
         }

@@ -51,9 +51,10 @@ class RadioEngine:
                 import mutagen.mp3
                 audio = mutagen.mp3.MP3(file_path)
                 return float(audio.info.length)
+            return 0.0
         except Exception as e:
             print(f"[RJ] Could not read audio length ({audio_url}): {e}")
-        return 14.0
+        return 0.0
 
     def _get_station_rj_interlude(self) -> Optional[str]:
         """Return a station RJ interlude audio URL from pre-rendered RJ clips."""
@@ -190,8 +191,14 @@ class RadioEngine:
             return
         if self.current_song.get("youtube_video_id") != video_id:
             return
-        if duration_seconds < 10:
+        # Ignore durations under 60 seconds (guards against YouTube ad lengths or buffering glitches)
+        if duration_seconds < 60:
             return
+        # Do not accept duration shorter than what has already elapsed + 15s (guards against premature cuts)
+        if self.song_started_at > 0:
+            elapsed = time.time() - self.song_started_at
+            if duration_seconds <= elapsed + 15:
+                return
         if not self._duration_confirmed or abs(self.song_duration - duration_seconds) > 5:
             print(f"[DURATION] Confirmed: {duration_seconds:.0f}s for \"{self.current_song['title']}\"")
             self.song_duration       = duration_seconds
@@ -310,7 +317,9 @@ class RadioEngine:
                     now = time.time()
                     self.rj_ends_at          = now + rj_dur if rj_dur > 0 else 0.0
                     self.song_started_at     = self.rj_ends_at if rj_dur > 0 else now
-                    self.song_duration       = float(song.get("duration") or _DEFAULT_SONG_DURATION) if song else _DEFAULT_SONG_DURATION
+                    self.is_playing          = True
+                    raw_dur                  = float(song.get("duration") or _DEFAULT_SONG_DURATION) if song else _DEFAULT_SONG_DURATION
+                    self.song_duration       = max(60.0, raw_dur)
                     self._duration_confirmed = False
                     self._refill_upcoming(db)
                     return {
@@ -487,6 +496,7 @@ async def process_request_pipeline(request_id: int):
             "id": song.id, "title": song.title, "artist": song.artist,
             "movie": song.movie or "", "release_year": song.release_year,
             "youtube_video_id": song.youtube_video_id,
+            "duration": song.duration or _DEFAULT_SONG_DURATION,
         }
 
         emotion = classify_emotion(req.story or "")

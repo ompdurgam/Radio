@@ -219,4 +219,4 @@ echo ""
 echo -e " Press ${BOLD}Ctrl+C${NC} to stop the server."
 echo ""
 
-exec python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+exec python -m uvicorn main:app --host 0.0.0.0 --port 8000

@@ -203,8 +203,8 @@ const App = (() => {
       _updateSongDisplay(song);
 
       // If already playing and song changed on server, transition smoothly
-      // BUT do NOT reload if already loaded or if RJ sound is playing or scheduled
-      if (state.isPlaying && songChanged && !state.rjPlaying && state.currentLoadedVideoId !== song.youtube_video_id && (_radioNow() >= state.songStartedAt)) {
+      // BUT do NOT reload if already loaded, if RJ sound is playing/scheduled, or if audio url present
+      if (state.isPlaying && songChanged && !state.rjPlaying && !data.rj_audio_url && state.currentLoadedVideoId !== song.youtube_video_id && (_radioNow() >= state.songStartedAt)) {
         console.log(`[Sync] Server song changed → "${song.title}"`);
         _loadYTSong(song, _getSyncOffset());
       } else if (state.isPlaying && !Player.isPlaying() && !state.rjPlaying && (_radioNow() >= state.songStartedAt)) {
@@ -466,9 +466,9 @@ const App = (() => {
       $('cover-disc')?.classList.add('spinning');
 
       // Report the actual song duration to the server so it can schedule
-      // the next song precisely.  getDuration() is reliable once playing starts.
+      // the next song precisely. getDuration() is reliable once playing starts.
       const duration = Player.getDuration();
-      if (duration > 10 && videoId && state.ws?.readyState === WebSocket.OPEN) {
+      if (duration >= 60 && videoId && state.ws?.readyState === WebSocket.OPEN) {
         state.ws.send(JSON.stringify({
           type:     'song_duration_report',
           video_id: videoId,
